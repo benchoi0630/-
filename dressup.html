@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dress Up (PNG 레이어)</title>
+  <style>
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+      margin:0; padding:24px; background:#f6f7fb; color:#111;
+    }
+    .wrap{
+      max-width: 1000px; margin:0 auto;
+      display:grid; grid-template-columns: 420px 1fr; gap:18px; align-items:start;
+    }
+    .stage{
+      background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.08);
+      padding:16px;
+    }
+    .canvas{
+      width: 380px; height: 520px;
+      margin:0 auto;
+      position:relative;
+      background: linear-gradient(#f9fafb, #ffffff);
+      border-radius:14px;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+    }
+
+    /* 레이어는 전부 같은 크기, 같은 좌표에 겹쳐놓는다 */
+    .layer{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%, -50%);
+      width: 360px;   /* 여기 한 줄만 바꾸면 전체 스케일 조절됨 */
+      height: auto;
+      image-rendering: auto;
+      pointer-events:none;
+      user-select:none;
+    }
+
+    /* 레이어 순서(밑->위) */
+    #baseLayer   { z-index: 1; }
+    #bottomLayer { z-index: 3; }
+    #shoesLayer  { z-index: 2; }
+    #topLayer    { z-index: 4; }
+    #hairLayer   { z-index: 5; }
+
+    .panel{
+      background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.08);
+      padding:16px;
+    }
+    h1{ font-size:18px; margin:0 0 10px; }
+    h2{ font-size:13px; margin:14px 0 8px; opacity:.75; }
+
+    .row{ display:flex; flex-wrap:wrap; gap:8px; }
+    button{
+      border:1px solid rgba(0,0,0,.12);
+      background:#fff;
+      padding:10px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button:hover{ background:#f3f4f6; }
+    button.active{
+      border-color: rgba(0,0,0,.55);
+      box-shadow: 0 0 0 2px rgba(0,0,0,.08) inset;
+    }
+    .bar{ display:flex; gap:8px; margin-top:14px; }
+    .bar button{ flex:1; }
+    .hint{
+      margin-top:10px; font-size:12px; opacity:.7; line-height:1.4;
+    }
+    code{ background:#f3f4f6; padding:2px 6px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <div class="canvas" aria-label="dress up stage">
+        <img id="baseLayer" class="layer" alt="base" />
+        <img id="shoesLayer" class="layer" alt="shoes" />
+        <img id="bottomLayer" class="layer" alt="bottom" />
+        <img id="topLayer" class="layer" alt="top" />
+        <img id="hairLayer" class="layer" alt="hair" />
+      </div>
+      <div class="hint">
+        이미지 안 맞으면 <code>.layer width</code> 값(현재 360px)만 조절해.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h1>옷갈아입히기 (PNG 레이어)</h1>
+
+      <h2>Hair</h2>
+      <div class="row" id="hairButtons"></div>
+
+      <h2>Top</h2>
+      <div class="row" id="topButtons"></div>
+
+      <h2>Bottom</h2>
+      <div class="row" id="bottomButtons"></div>
+
+      <h2>Shoes</h2>
+      <div class="row" id="shoesButtons"></div>
+
+      <div class="bar">
+        <button id="randomBtn">Random</button>
+        <button id="resetBtn">Reset</button>
+        <button id="saveBtn">Save</button>
+        <button id="loadBtn">Load</button>
+      </div>
+
+      <div class="hint">
+        기본 경로: <code>assets/base.png</code>, <code>assets/hair.png</code><br>
+        옷 경로: <code>assets/tops/...</code>, <code>assets/bottoms/...</code>, <code>assets/shoes/...</code>
+      </div>s
+    </div>
+  </div>
+
+  <script>
+    // ==== 여기만 네 파일명에 맞게 바꾸면 됨 ====
+    const ASSETS = {
+      base: "assets/base.png",
+      hair: [
+        { id: "hair_1", name: "Hair 1", src: "assets/hairs/1.png" },
+        { id: "hair_2", name: "Hair 2", src: "assets/hairs/2.png" },
+        { id: "hair_3", name: "Hair 3", src: "assets/hairs/3.png" },
+        { id: "hair_4", name: "Hair 4", src: "assets/hairs/4.png" },
+      ],
+      tops: [
+        { id: "top_1", name: "Top 1", src: "assets/tops/1.png" },
+        { id: "top_2", name: "Top 2", src: "assets/tops/2.png" },
+        { id: "top_3", name: "Top 3", src: "assets/tops/3.png" },
+        { id: "top_4", name: "Top 4", src: "assets/tops/4.png" },
+        { id: "top_5", name: "Top 5", src: "assets/tops/5.png" },
+      ],
+      bottoms: [
+        { id: "bottom_1", name: "Bottom 1", src: "assets/bottom/1.png" },
+        { id: "bottom_2", name: "Bottom 2", src: "assets/bottom/2.png" },
+        { id: "bottom_3", name: "Bottom 3", src: "assets/bottom/3.png" },
+      ],
+      shoes: [
+        { id: "shoes_1", name: "Shoes 1", src: "assets/shoes/1.png" },
+        { id: "shoes_2", name: "Shoes 2", src: "assets/shoes/2.png" },
+        { id: "shoes_3", name: "Shoes 3", src: "assets/shoes/3.png" },
+      ],
+    };
+
+    // ==== 레이어 엘리먼트 ====
+    const baseLayer   = document.getElementById("baseLayer");
+    const hairLayer   = document.getElementById("hairLayer");
+    const topLayer    = document.getElementById("topLayer");
+    const bottomLayer = document.getElementById("bottomLayer");
+    const shoesLayer  = document.getElementById("shoesLayer");
+
+    // ==== 상태 ====
+    const SAVE_KEY = "dressup_png_state_v1";
+    const state = {
+      hairId: ASSETS.hair[0]?.id ?? null,
+      topId: ASSETS.tops[0]?.id ?? null,
+      bottomId: ASSETS.bottoms[0]?.id ?? null,
+      shoesId: ASSETS.shoes[0]?.id ?? null,
+    };
+
+    // 고정 레이어 로드
+    baseLayer.src = ASSETS.base;
+
+    function applyState() {
+      const hair = ASSETS.hair.find(x => x.id === state.hairId);
+      const top = ASSETS.tops.find(x => x.id === state.topId);
+      const bottom = ASSETS.bottoms.find(x => x.id === state.bottomId);
+      const shoes = ASSETS.shoes.find(x => x.id === state.shoesId);
+
+      hairLayer.src = hair?.src ?? "";
+      topLayer.src = top?.src ?? "";
+      bottomLayer.src = bottom?.src ?? "";
+      shoesLayer.src = shoes?.src ?? "";
+
+      setActive("harirButtons", state.hairId);
+      setActive("topButtons", state.topId);
+      setActive("bottomButtons", state.bottomId);
+      setActive("shoesButtons", state.shoesId);
+    }
+
+    function setActive(containerId, activeId) {
+      const box = document.getElementById(containerId);
+      [...box.querySelectorAll("button")].forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.id === activeId);
+      });
+    }
+
+    function buildButtons(containerId, items, onPick) {
+      const box = document.getElementById(containerId);
+      box.innerHTML = "";
+      items.forEach(item => {
+        const btn = document.createElement("button");
+        btn.textContent = item.name;
+        btn.dataset.id = item.id;
+        btn.addEventListener("click", () => onPick(item.id));
+        box.appendChild(btn);
+      });
+    }
+
+    buildButtons("hairButtons", ASSETS.hair, (id) => { state.hairId = id; applyState(); });
+    buildButtons("topButtons", ASSETS.tops, (id) => { state.topId = id; applyState(); });
+    buildButtons("bottomButtons", ASSETS.bottoms, (id) => { state.bottomId = id; applyState(); });
+    buildButtons("shoesButtons", ASSETS.shoes, (id) => { state.shoesId = id; applyState(); });
+
+    document.getElementById("randomBtn").addEventListener("click", () => {
+      state.hairId = ASSETS.hair[Math.floor(Math.random() * ASSETS.hair.length)].id;
+      state.topId = ASSETS.tops[Math.floor(Math.random() * ASSETS.tops.length)].id;
+      state.bottomId = ASSETS.bottoms[Math.floor(Math.random() * ASSETS.bottoms.length)].id;
+      state.shoesId = ASSETS.shoes[Math.floor(Math.random() * ASSETS.shoes.length)].id;
+      applyState();
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      state.hairId = ASSETS.hair[0]?.id ?? null;
+      state.topId = ASSETS.tops[0]?.id ?? null;
+      state.bottomId = ASSETS.bottoms[0]?.id ?? null;
+      state.shoesId = ASSETS.shoes[0]?.id ?? null;
+      applyState();
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+      alert("저장됨");
+    });
+
+    document.getElementById("loadBtn").addEventListener("click", () => {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return alert("저장된 데이터 없음");
+      try {
+        const loaded = JSON.parse(raw);
+        state.hairId = loaded.hairId ?? state.hairId;
+        state.topId = loaded.topId ?? state.topId;
+        state.bottomId = loaded.bottomId ?? state.bottomId;
+        state.shoesId = loaded.shoesId ?? state.shoesId;
+        applyState();
+        alert("불러옴");
+      } catch {
+        alert("불러오기 실패(데이터 손상)");
+      }
+    });
+
+    applyState();
+
+    /*
+      새/낯선 JS 포인트(자동 설명):
+      - optional chaining: ASSETS.tops[0]?.id  (없으면 에러 대신 undefined)
+      - nullish coalescing: ?? null           (null/undefined일 때만 대체)
+      - [...nodeList]: NodeList를 배열로 변환
+      - localStorage + JSON.stringify/parse: 브라우저에 상태 저장/복원
+    */
+  </script>
+</body>
+</html>
