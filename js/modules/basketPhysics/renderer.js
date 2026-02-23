@@ -2,11 +2,8 @@
 // 핵심 책임: 프레임 초기화, 바구니 이미지 렌더, 표정/회전 상태를 반영한 마리모 그리기를 수행한다.
 // 연동 범위: index 루프의 마지막 단계에서 physics 결과를 시각적으로 표시한다.
 
-import { drawMarimoOnCanvas, shouldUseMarimoFaceVariant2 } from "../../../ui/marimoRender.js";
-import { getBasketShapeSprite, isBasketShapeSpriteReady } from "./basketShapeAsset.js";
+import { drawMarimoOnCanvas, shouldUseMarimoFaceVariant2 } from "../../ui/marimoRender.js";
 import { getBasketRenderLayout, getMarimoPhysicsFaceScale, getNowMs } from "./utils.js";
-
-const basketSprite = getBasketShapeSprite();
 
 function drawFallbackBasket(ctx, layout) {
     const { basketRect } = layout;
@@ -20,13 +17,14 @@ function drawFallbackBasket(ctx, layout) {
 export function drawBasket(runtime, spriteCache) {
     const { ctx, width, height, bodies, pixelRatio } = runtime;
     const layout = getBasketRenderLayout(width, height);
+    const basketShapeAsset = runtime?.basketShapeAsset || null;
     const faceRenderScale = getMarimoPhysicsFaceScale();
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    if (isBasketShapeSpriteReady()) {
+    if (basketShapeAsset?.isSpriteReady?.() === true && basketShapeAsset.sprite) {
         ctx.drawImage(
-            basketSprite,
+            basketShapeAsset.sprite,
             layout.basketRect.x,
             layout.basketRect.y,
             layout.basketRect.width,

@@ -6,7 +6,7 @@ import { state, saveState } from "../../../state.js";
 import { createMarimoRecordId, getMarimoDiameter, getMarimoType, getMarimoVolume, hasMainMarimo } from "../../../utils/marimoData.js";
 import { renderSingleDetail } from "./singleDetailModal.js";
 import { pickRandomStackItemId, renderStackDetail, stopStackDetail } from "./stackDetailModal.js";
-import { replaceBasketItem } from "../basketPhysics/index.js";
+import { replaceBasketItem } from "../../../modules/basketPhysics/index.js";
 import { bindEventOnce } from "../../../utils/domEvents.js";
 
 // 이 섹션은 창고 상세 모달 내부 상태와 외부 콜백 컨텍스트를 관리한다.

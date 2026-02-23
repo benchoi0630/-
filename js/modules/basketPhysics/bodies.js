@@ -2,11 +2,11 @@
 // 핵심 책임: 반지름 계산, 초기 바디 생성, 기존 바디 재사용(reconcile), 렌더 서브셋 샘플링을 담당한다.
 // 연동 범위: index 런타임 생성/갱신 단계에서 호출되어 physics·renderer가 사용할 바디 배열을 제공한다.
 
-import { createMarimoFaceAnimationState } from "../../../ui/marimoRender.js";
-import { getMarimoType, getMarimoVolume, volumeToDiameter } from "../../../utils/marimoData.js";
+import { createMarimoFaceAnimationState } from "../../ui/marimoRender.js";
+import { getMarimoType, getMarimoVolume, volumeToDiameter } from "../../utils/marimoData.js";
 import { clamp, getMarimoPhysicsBodyRadiusScale, randomBetween } from "./utils.js";
 
-const MAX_STACK_RENDER = 50;
+export const DEFAULT_MAX_RENDER_COUNT = 50;
 const WORLD_PADDING = 8;
 const MIN_BODY_RADIUS = 12;
 const MAX_BODY_RADIUS = 39;
@@ -64,7 +64,8 @@ export function createBasketBody(item, width, height, index, bodyRadiusScale = g
         y,
         vx,
         vy,
-        type: getMarimoType(item)
+        type: getMarimoType(item),
+        isPointerDragging: false
     };
 
     ensureBodyAnimationState(body);
@@ -83,8 +84,17 @@ export function createBasketBodies(renderItems, width, height) {
     return bodies;
 }
 
-export function buildBasketRenderSubset(stackItems, stackRepresentativeVolume) {
-    if (stackItems.length <= MAX_STACK_RENDER) {
+function normalizeMaxRenderCount(maxRenderCount) {
+    if (!Number.isFinite(maxRenderCount)) {
+        return DEFAULT_MAX_RENDER_COUNT;
+    }
+
+    return Math.max(1, Math.round(maxRenderCount));
+}
+
+export function buildBasketRenderSubset(stackItems, stackRepresentativeVolume, maxRenderCount = DEFAULT_MAX_RENDER_COUNT) {
+    const safeMaxRenderCount = normalizeMaxRenderCount(maxRenderCount);
+    if (stackItems.length <= safeMaxRenderCount) {
         return [...stackItems];
     }
 
@@ -101,10 +111,10 @@ export function buildBasketRenderSubset(stackItems, stackRepresentativeVolume) {
         return idA.localeCompare(idB);
     });
 
-    const prioritizedCount = Math.max(1, Math.floor(MAX_STACK_RENDER * 0.5));
+    const prioritizedCount = Math.max(1, Math.floor(safeMaxRenderCount * 0.5));
     const prioritized = sortedByHeterogeneity.slice(0, prioritizedCount);
     const remaining = sortedByHeterogeneity.slice(prioritizedCount);
-    const sampleNeed = MAX_STACK_RENDER - prioritized.length;
+    const sampleNeed = safeMaxRenderCount - prioritized.length;
 
     if (remaining.length <= sampleNeed) {
         return prioritized.concat(remaining);
@@ -129,7 +139,7 @@ export function buildBasketRenderSubset(stackItems, stackRepresentativeVolume) {
         }
     }
 
-    return prioritized.concat(sampled).slice(0, MAX_STACK_RENDER);
+    return prioritized.concat(sampled).slice(0, safeMaxRenderCount);
 }
 
 export function reconcileBasketBodies(runtime, renderItems) {

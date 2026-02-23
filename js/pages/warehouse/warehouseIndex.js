@@ -7,7 +7,7 @@ import { renderMarimoVisual } from "../../ui/marimoRender.js";
 import { getMarimoVolume } from "../../utils/marimoData.js";
 import { closeWarehouseDetailModal, initWarehouseDetailModal, openWarehouseItemDetail, openWarehouseStackDetail } from "./detailModal/detailModal.js";
 import { cycleStackMode, ensureStackModeButton, getCurrentStackMode, renderStackModeButton, renderWarehouseByMode } from "./stacking.js";
-import { startBasketAnimation, stopBasketAnimation } from "./basketPhysics/index.js";
+import { startBasketAnimation, stopBasketAnimation } from "../../modules/basketPhysics/index.js";
 import { bindEventOnce } from "../../utils/domEvents.js";
 
 // 이 변수는 창고 메시지 자동 삭제 타이머를 저장한다.
@@ -282,12 +282,13 @@ function renderWarehousePhysicsMode(elements) {
 
     startBasketAnimation({
         canvas,
-        stackItems: state.warehouse,
+        items: state.warehouse,
         stackRepresentativeVolume: getWarehouseRepresentativeVolume(state.warehouse),
         onSelectItem: (itemId) => openWarehouseItemDetail(itemId),
         physicsWidth: width,
         physicsHeight: height,
-        devicePixelRatio: window.devicePixelRatio || 1
+        devicePixelRatio: window.devicePixelRatio || 1,
+        maxRenderCount: 50
     });
 }
 

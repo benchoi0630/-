@@ -3,7 +3,7 @@
 // 연동 범위: basketPhysics 시작/중지와 연동되는 스택 모드 전용 뷰 로직을 제공한다.
 
 import { state } from "../../../state.js";
-import { startBasketAnimation, stopBasketAnimation } from "../basketPhysics/index.js";
+import { startBasketAnimation, stopBasketAnimation } from "../../../modules/basketPhysics/index.js";
 
 const DEFAULT_BASKET_CANVAS_WIDTH = 360;
 const DEFAULT_BASKET_CANVAS_HEIGHT = 300;
@@ -74,12 +74,13 @@ export function renderStackDetail(options) {
 
     startBasketAnimation({
         canvas,
-        stackItems,
+        items: stackItems,
         stackRepresentativeVolume: stackMeta?.stackRepresentativeVolume,
         onSelectItem,
         physicsWidth: canvasConfig.width,
         physicsHeight: canvasConfig.height,
-        devicePixelRatio: canvasConfig.dpr
+        devicePixelRatio: canvasConfig.dpr,
+        maxRenderCount: 50
     });
 }
 

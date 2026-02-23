@@ -2,7 +2,6 @@
 // 핵심 책임: 중력/마찰/감쇠, 벽·바닥 반발, 바디 간 충돌 분리/충격량/스핀 계산을 처리한다.
 // 연동 범위: index 프레임 루프에서 호출되어 renderer 직전의 최신 위치·속도 상태를 만든다.
 
-import { getBasketCollisionMask } from "./basketShapeAsset.js";
 import { clamp, getBasketRenderLayout, randomBetween } from "./utils.js";
 
 const WORLD_PADDING = 8;
@@ -136,10 +135,9 @@ function accumulateBasketMaskNormalFromSample(normalState, basketMask, basketRec
     let pushX = -gradientX;
     let pushY = -gradientY;
     if (Math.abs(pushX) < 0.0001 && Math.abs(pushY) < 0.0001) {
-        const basketCenterX = basketRect.x + basketRect.width * 0.5;
-        const basketCenterY = basketRect.y + basketRect.height * 0.5;
-        pushX = worldX - basketCenterX;
-        pushY = worldY - basketCenterY;
+        // Gradient가 없는 두꺼운 고형 픽셀 내부는 벽 안/밖 구분이 불가해 방향 오판이 잦다.
+        // 이런 샘플은 normal 집계에서 제외하고, 경계 샘플만으로 분리 방향을 계산한다.
+        return;
     }
 
     const pushLength = Math.hypot(pushX, pushY);
@@ -213,7 +211,7 @@ export function updateBasketPhysics(runtime) {
     const leftWall = WORLD_PADDING;
     const rightWall = runtime.width - WORLD_PADDING;
     const bodies = runtime.bodies;
-    const basketMask = getBasketCollisionMask();
+    const basketMask = runtime?.basketShapeAsset?.getCollisionMask?.() || null;
     const basketRect = getBasketRenderLayout(runtime.width, runtime.height).basketRect;
     const basketWorldMaskBounds = getBasketMaskWorldBounds(basketMask, basketRect);
 
@@ -225,6 +223,15 @@ export function updateBasketPhysics(runtime) {
             body.y = clamp(runtime.height * 0.5, WORLD_PADDING + body.radius, runtime.height - WORLD_PADDING - body.radius);
             body.vx = 0;
             body.vy = 0;
+        }
+
+        if (body.isPointerDragging === true) {
+            body.x = clamp(body.x, leftWall + body.radius, rightWall - body.radius);
+            body.y = clamp(body.y, ceiling + body.radius, floor - body.radius);
+            body.vx *= 0.82;
+            body.vy *= 0.82;
+            body.angularVelocity *= 0.7;
+            continue;
         }
 
         body.vx = clamp(body.vx, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
@@ -325,11 +332,25 @@ export function updateBasketPhysics(runtime) {
             const nx = dx / dist;
             const ny = dy / dist;
             const overlap = minDist - dist;
+            const aDragged = a.isPointerDragging === true;
+            const bDragged = b.isPointerDragging === true;
 
-            a.x -= nx * overlap * 0.5;
-            a.y -= ny * overlap * 0.5;
-            b.x += nx * overlap * 0.5;
-            b.y += ny * overlap * 0.5;
+            if (aDragged && bDragged) {
+                continue;
+            }
+
+            if (aDragged) {
+                b.x += nx * overlap;
+                b.y += ny * overlap;
+            } else if (bDragged) {
+                a.x -= nx * overlap;
+                a.y -= ny * overlap;
+            } else {
+                a.x -= nx * overlap * 0.5;
+                a.y -= ny * overlap * 0.5;
+                b.x += nx * overlap * 0.5;
+                b.y += ny * overlap * 0.5;
+            }
 
             const relVx = b.vx - a.vx;
             const relVy = b.vy - a.vy;
@@ -337,29 +358,40 @@ export function updateBasketPhysics(runtime) {
 
             if (sepSpeed < 0) {
                 const impulse = -sepSpeed * 0.28;
-                a.vx -= impulse * nx;
-                a.vy -= impulse * ny;
-                b.vx += impulse * nx;
-                b.vy += impulse * ny;
+                if (!aDragged) {
+                    a.vx -= impulse * nx;
+                    a.vy -= impulse * ny;
+                }
+                if (!bDragged) {
+                    b.vx += impulse * nx;
+                    b.vy += impulse * ny;
+                }
             }
 
             const tx = -ny;
             const ty = nx;
             const relTanSpeed = relVx * tx + relVy * ty;
             const tangentImpulse = relTanSpeed * 0.08;
-            a.vx += tangentImpulse * tx;
-            a.vy += tangentImpulse * ty;
-            b.vx -= tangentImpulse * tx;
-            b.vy -= tangentImpulse * ty;
+            if (!aDragged) {
+                a.vx += tangentImpulse * tx;
+                a.vy += tangentImpulse * ty;
+            }
+            if (!bDragged) {
+                b.vx -= tangentImpulse * tx;
+                b.vy -= tangentImpulse * ty;
+            }
 
             const spinImpulse = relTanSpeed * 0.004;
-            a.angularVelocity -= spinImpulse;
-            b.angularVelocity += spinImpulse;
-
-            a.vx = clamp(a.vx, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
-            a.vy = clamp(a.vy, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
-            b.vx = clamp(b.vx, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
-            b.vy = clamp(b.vy, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
+            if (!aDragged) {
+                a.angularVelocity -= spinImpulse;
+                a.vx = clamp(a.vx, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
+                a.vy = clamp(a.vy, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
+            }
+            if (!bDragged) {
+                b.angularVelocity += spinImpulse;
+                b.vx = clamp(b.vx, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
+                b.vy = clamp(b.vy, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
+            }
         }
     }
 }
