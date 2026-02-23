@@ -1,0 +1,74 @@
+/* 파일 역할: 게임 내 모든 마리모 UI(본체/표정/추가 레이어) 스타일을 단일 지점에서 관리한다.
+ * 핵심 책임: 공통 크기, 레이어 정렬, 얼굴 축소/회전 등 마리모 렌더 규칙을 중앙화한다.
+ * 연동 범위: 메인/창고/도감/상세 모달 DOM 렌더와 창고 physics 캔버스 렌더가 공통 토큰을 공유한다. */
+
+:root {
+    --marimo-render-face-scale: 0.65;
+    --marimo-render-face-origin: 50% 50%;
+    --marimo-render-body-radius-scale: 1.5;
+}
+
+/* 마리모 공통 박스/레이어 규칙 */
+.marimo {
+    --marimo-size: calc(120px * var(--ui-scale));
+    --marimo-face-scale: var(--marimo-render-face-scale);
+    --marimo-face-origin: var(--marimo-render-face-origin);
+    --marimo-roll-angle: var(--main-roll-angle, 0deg);
+    width: var(--marimo-size);
+    height: var(--marimo-size);
+    position: relative;
+    z-index: 4;
+    overflow: hidden;
+    background: transparent;
+}
+
+.marimo > [class^="marimo-layer-"],
+.marimo > [class*=" marimo-layer-"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    transform-origin: 50% 50%;
+}
+
+.marimo-layer-face {
+    transform: scale(var(--marimo-face-scale));
+    transform-origin: var(--marimo-face-origin);
+}
+
+/* 메인 페이지는 회전 애니메이션 각도를 body/face에 공통 적용한다. */
+#mainPage .marimo {
+    position: absolute;
+    left: 50%;
+    top: 58%;
+    --main-roll-angle: 0deg;
+    transform: translate(-50%, -80%);
+    transform-origin: 50% 80%;
+    touch-action: none;
+    z-index: 4;
+}
+
+#mainPage .marimo .marimo-layer-body {
+    transform: rotate(var(--marimo-roll-angle));
+}
+
+#mainPage .marimo .marimo-layer-face {
+    transform: rotate(var(--marimo-roll-angle)) scale(var(--marimo-face-scale));
+    transform-origin: 50% 50%;
+}
+
+/* 컨텍스트별 크기 프리셋 */
+.dictionary-entry-preview .marimo {
+    --marimo-size: 100%;
+}
+
+.warehouse-item .marimo {
+    --marimo-size: calc(60px * var(--ui-scale));
+}
+
+.single-detail-marimo {
+    --marimo-size: min(56vw, calc(220px * var(--ui-scale)));
+}

@@ -1,0 +1,38 @@
+/* 파일 역할: 헤더 좌측 액션 버튼들의 공통 외형과 상태 스타일을 정의한다.
+ * 핵심 책임: 상태/도감/설정 버튼의 아이콘 이미지 크기와 경계선 규칙을 통일한다.
+ * 연동 범위: 헤더 액션 UI의 입력 타겟 크기와 시각 일관성을 보장한다. */
+
+/* 헤더 아이콘 버튼 */
+.header-circle-btn {
+    width: calc(46px * var(--ui-scale));
+    height: calc(46px * var(--ui-scale));
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.header-icon-btn {
+    background: transparent;
+}
+
+.header-icon-btn .icon-button-image {
+    width: 100%;
+    height: 100%;
+}
+
+.state-trigger-btn {
+    border: 0;
+}
+
+.setting-placeholder-btn {
+    opacity: 0.9;
+}

@@ -1,0 +1,62 @@
+/* 파일 역할: 전역 디자인 토큰(CSS 변수)의 기본값과 반응형 오버라이드를 정의한다.
+ * 핵심 책임: UI 스케일, 마리모/상인 크기, 캔버스 치수 등 계산의 기준 단위를 통일한다.
+ * 연동 범위: 컴포넌트/페이지 스타일이 참조하는 공통 수치 소스 역할을 한다. */
+
+:root {
+    --app-font-family: "Fredoka", "Nunito", Arial, sans-serif;
+    --app-font-weight: 600;
+    --header-height: 60;
+    --app-width: 400px;
+    --app-height: 844px;
+    --app-text-color: #ffffff;
+    --app-text-outline-color: rgba(0, 0, 0, 0.9);
+    --app-text-outline-width: 2px;
+    --app-text-outline-webkit-width: 0.5px;
+    --app-text-outline-shadow:
+        calc(var(--app-text-outline-width) * -1) 0 0 var(--app-text-outline-color),
+        var(--app-text-outline-width) 0 0 var(--app-text-outline-color),
+        0 calc(var(--app-text-outline-width) * -1) 0 var(--app-text-outline-color),
+        0 var(--app-text-outline-width) 0 var(--app-text-outline-color),
+        calc(var(--app-text-outline-width) * -1) calc(var(--app-text-outline-width) * -1) 0 var(--app-text-outline-color),
+        var(--app-text-outline-width) calc(var(--app-text-outline-width) * -1) 0 var(--app-text-outline-color),
+        calc(var(--app-text-outline-width) * -1) var(--app-text-outline-width) 0 var(--app-text-outline-color),
+        var(--app-text-outline-width) var(--app-text-outline-width) 0 var(--app-text-outline-color);
+    --app-icon-outline-color: rgba(0, 0, 0, 0.92);
+    --app-icon-outline-width: 1px;
+    --app-icon-outline-outer-color: rgba(255, 255, 255, 0.95);
+    --app-icon-outline-outer-width: 2px;
+    --app-button-icon-outline-filter:
+        drop-shadow(calc(var(--app-icon-outline-width) * -1) 0 0 var(--app-icon-outline-color))
+        drop-shadow(var(--app-icon-outline-width) 0 0 var(--app-icon-outline-color))
+        drop-shadow(0 calc(var(--app-icon-outline-width) * -1) 0 var(--app-icon-outline-color))
+        drop-shadow(0 var(--app-icon-outline-width) 0 var(--app-icon-outline-color))
+        drop-shadow(calc(var(--app-icon-outline-outer-width) * -1) 0 0 var(--app-icon-outline-outer-color))
+        drop-shadow(var(--app-icon-outline-outer-width) 0 0 var(--app-icon-outline-outer-color))
+        drop-shadow(0 calc(var(--app-icon-outline-outer-width) * -1) 0 var(--app-icon-outline-outer-color))
+        drop-shadow(0 var(--app-icon-outline-outer-width) 0 var(--app-icon-outline-outer-color));
+
+    --ui-scale: 1;
+    --marimo-scale: 1;
+    --main-marimo-base-scale: 80;
+
+    --merchant-size: 200;
+    --warehouse-card-min: 120;
+
+    --basket-canvas-width: 360;
+    --basket-canvas-height: 300;
+    --basket-canvas-dpr: 1;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --merchant-size: 220;
+        --warehouse-card-min: 130;
+    }
+}
+
+@media (min-width: 1200px) {
+    :root {
+        --merchant-size: 240;
+        --warehouse-card-min: 140;
+    }
+}

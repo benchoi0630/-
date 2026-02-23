@@ -1,0 +1,236 @@
+/* 파일 역할: 메인 페이지 씬(배경 레이어/해초/하단바) 스타일을 담당한다.
+ * 핵심 책임: 지면 이미지 레이어와 해초 흔들림 애니메이션, 하단 상호작용 레이아웃을 정의한다.
+ * 연동 범위: 메인 상호작용 UI의 시각 중심 구성을 담당하는 핵심 컴포넌트 스타일이다. */
+
+/* 메인 페이지 씬, 하단 바 컴포넌트 */
+.informations {
+    position: absolute;
+    top: calc(12px * var(--ui-scale));
+    left: calc(12px * var(--ui-scale));
+    display: flex;
+    flex-direction: column;
+    gap: calc(4px * var(--ui-scale));
+    color: var(--app-text-color);
+    z-index: 8;
+}
+
+.info-text {
+    font-size: calc(16px * var(--ui-scale));
+}
+
+.floating-warehouse-btn {
+    position: absolute;
+    top: calc(12px * var(--ui-scale));
+    right: calc(12px * var(--ui-scale));
+    z-index: 9;
+    width: calc(120px * var(--ui-scale));
+    height: calc(120px * var(--ui-scale));
+    border-radius: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    font-size: 0;
+}
+
+.floating-warehouse-btn .icon-button-image {
+    width: 100%;
+    height: 100%;
+}
+
+.marimo-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.global-main-background {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--app-width);
+    height: var(--app-height);
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    isolation: isolate;
+    opacity: 1;
+    transition: opacity 180ms ease;
+}
+
+.global-main-background.main-scene-enabled {
+    isolation: isolate;
+    background: linear-gradient(180deg, #94d2d7 0%, #6fb8c0 52%, #4d96a1 100%);
+}
+
+.global-main-background.global-main-background-inactive {
+    opacity: 0;
+}
+
+.main-ground-layer-back,
+.main-ground-layer-middle,
+.main-ground-layer-front {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center bottom;
+    pointer-events: none;
+    user-select: none;
+    will-change: transform;
+}
+
+.main-ground-layer-back {
+    z-index: 1;
+    opacity: 0.92;
+    transform: translateY(40%);
+}
+
+.main-seaweed-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.main-ground-layer-middle {
+    z-index: 3;
+    opacity: 0.95;
+    transform: translateY(50%);
+}
+
+.main-seaweed {
+    position: absolute;
+    bottom: 0;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+    transform-origin: center bottom;
+    animation: main-seaweed-sway var(--seaweed-sway-duration, 4.5s) ease-in-out infinite;
+    animation-delay: var(--seaweed-sway-delay, 0s);
+    will-change: transform;
+}
+
+.main-ground-layer-front {
+    z-index: 6;
+    opacity: 0.98;
+    transform: translateY(60%);
+}
+
+@keyframes main-seaweed-sway {
+    0% {
+        transform: translateX(calc(var(--seaweed-drift, 8px) * -0.35)) rotate(-3deg) scale(var(--seaweed-scale, 1));
+    }
+    50% {
+        transform: translateX(var(--seaweed-drift, 8px)) rotate(2deg) scale(var(--seaweed-scale, 1));
+    }
+    100% {
+        transform: translateX(calc(var(--seaweed-drift, 8px) * -0.35)) rotate(-3deg) scale(var(--seaweed-scale, 1));
+    }
+}
+
+.main-nutrition-bar-wrap {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    transform: translate(-50%, -273%);
+    width: min(58vw, calc(260px * var(--ui-scale)));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(4px * var(--ui-scale));
+    pointer-events: none;
+    z-index: 11;
+}
+
+.main-nutrition-bar-track {
+    width: 100%;
+    height: calc(12px * var(--ui-scale));
+    border-radius: 999px;
+    border: 1px solid rgba(220, 245, 246, 0.65);
+    background: rgba(9, 25, 28, 0.42);
+    overflow: hidden;
+}
+
+.main-nutrition-bar-fill {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #9be67a 0%, #56d79c 55%, #31c6af 100%);
+    transition: width 90ms linear;
+}
+
+.main-nutrition-bar-text {
+    margin: 0;
+    color: var(--app-text-color);
+    font-size: calc(11px * var(--ui-scale));
+    font-weight: 700;
+    text-shadow: var(--app-text-outline-shadow);
+}
+
+.bottom-bar {
+    position: absolute;
+    left: 50%;
+    bottom: calc(50px * var(--ui-scale));
+    transform: translateX(-50%);
+    min-height: 0;
+    width: min(92vw, calc(420px * var(--ui-scale)));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: calc(8px * var(--ui-scale));
+    padding: 0;
+    border-top: 0;
+    z-index: 12;
+    pointer-events: none;
+}
+
+.bottom-bar .message-text {
+    order: -1;
+    width: auto;
+    text-align: center;
+    min-height: 16px;
+    padding: calc(4px * var(--ui-scale)) calc(10px * var(--ui-scale));
+    border-radius: calc(8px * var(--ui-scale));
+    background: rgba(8, 20, 24, 0.55);
+    border: 1px solid rgba(226, 248, 248, 0.22);
+}
+
+#splitBtn,
+.split-control {
+    pointer-events: auto;
+    background: rgba(16, 31, 35, 0.78);
+    border: 1px solid rgba(226, 248, 248, 0.34);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+}
+
+#splitBtn {
+    min-width: calc(200px * var(--ui-scale));
+    border-radius: 999px;
+    font-size: 300%;
+}
+
+.split-control {
+    display: flex;
+    align-items: center;
+    gap: calc(6px * var(--ui-scale));
+    padding: calc(6px * var(--ui-scale)) calc(10px * var(--ui-scale));
+    border-radius: 999px;
+}
+
+.arrow-btn {
+    min-width: 44px;
+    padding: calc(6px * var(--ui-scale)) calc(8px * var(--ui-scale));
+}

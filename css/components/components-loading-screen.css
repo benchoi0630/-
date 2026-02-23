@@ -1,0 +1,22 @@
+/* 파일 역할: 로딩 오버레이 컴포넌트의 시각 스타일을 정의한다.
+ * 핵심 책임: 전체 화면 검은 배경을 최상단에 고정하고 페이드 아웃 상태를 제공한다.
+ * 연동 범위: `#loadingScreen` 요소와 `loading-screen-hidden` 클래스를 렌더링한다. */
+
+.loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: #000;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+        opacity 180ms ease,
+        visibility 0s linear 180ms;
+}
+
+.loading-screen.loading-screen-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}

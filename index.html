@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<!-- 파일 역할: 앱의 단일 페이지 구조와 전역/페이지/모달 DOM 뼈대를 정의한다.
+     핵심 책임: 창고·메인·상점 섹션과 상태/도감 관련 모달의 고정 id 계약을 제공한다.
+     연동 범위: 런타임 모듈(`js/app.js`, `js/devtools.js`)이 참조하는 초기 마크업 진입점이다. -->
+
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>marimo</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div id="loadingScreen" class="loading-screen" aria-hidden="false"></div>
+    <div id="globalMainBackground" class="global-main-background global-main-background-inactive" aria-hidden="true"></div>
+
+    <!-- 이 헤더는 스냅 페이지 위에 항상 고정 표시된다. -->
+    <header class="global-header" id="globalHeader">
+        <div class="header-left-actions">
+            <button id="openStateModalBtn" class="header-circle-btn header-icon-btn state-trigger-btn" type="button" aria-label="Open state modal">
+                <img class="icon-button-image" src="js/ui/assets/UI elements/upgrade button icon.png" alt="" aria-hidden="true" />
+            </button>
+            <button id="openDictionaryBtn" class="header-circle-btn header-icon-btn dictionary-trigger-btn" type="button" aria-label="Open dictionary">
+                <img class="icon-button-image" src="js/ui/assets/UI elements/software upgrade icon.png" alt="" aria-hidden="true" />
+            </button>
+            <button id="openSettingBtn" class="header-circle-btn header-icon-btn setting-placeholder-btn" type="button" aria-label="Open settings">
+                <img class="icon-button-image" src="js/ui/assets/UI elements/setting button icon.png" alt="" aria-hidden="true" />
+            </button>
+        </div>
+        <div class="shells-text"><img class="shells-icon" src="js/ui/assets/UI elements/shell.png" alt="shell" /><span id="shellsCount">0</span></div>
+    </header>
+
+    <!-- 이 메인은 가로 스냅 페이지만으로 화면 이동을 구성한다. -->
+    <main class="page-container" id="pageContainer">
+        <!-- 이 섹션은 좌측 스냅 위치의 창고 페이지다. -->
+        <section class="page" id="warehousePage">
+            <button id="warehouseViewToggleBtn" class="warehouse-view-toggle-btn" type="button">List View</button>
+            <div class="page-content warehouse-content">
+                <div id="warehousePhysicsStage" class="warehouse-physics-stage"></div>
+                <p id="warehouseEmptyText">No marimos in warehouse yet.</p>
+                <div id="warehouseGrid" class="warehouse-grid"></div>
+            </div>
+        </section>
+
+        <!-- 이 섹션은 기본 진입 위치인 중앙 메인 페이지다. -->
+        <section class="page" id="mainPage">
+            <button id="sendToWarehouseBtn" class="floating-warehouse-btn hidden" type="button" aria-label="Put into warehouse">
+                <img class="icon-button-image" src="js/ui/assets/UI elements/put into warehouse icon.png" alt="" aria-hidden="true" />
+            </button>
+            <div class="marimo-area">
+                <div class="informations">
+                    <div class="info-text">
+                        diameter: <span id="diameter-text">1.00</span>
+                    </div>
+                    <div class="info-text">
+                        volume: <span id="volume-text">1.00</span>
+                    </div>
+                </div>
+                <div class="marimo" id="marimo"></div>
+            </div>
+
+            <div class="bottom-bar">
+                <button id="splitBtn">split</button>
+                <div id="splitControl" class="split-control hidden">
+                    <span id="splitVolumeText">volume: 1</span>
+                    <button id="splitUpBtn" class="arrow-btn" type="button" aria-label="Increase split volume">▲</button>
+                    <button id="splitDownBtn" class="arrow-btn" type="button" aria-label="Decrease split volume">▼</button>
+                </div>
+                <p id="mainMessage" class="message-text"></p>
+            </div>
+        </section>
+
+        <!-- 이 섹션은 우측 스냅 위치의 상점 페이지다. -->
+        <section class="page" id="shopPage">
+            <div class="page-content shop-content">
+                <div id="shopMerchantList" class="merchant-list"></div>
+                <p id="shopMessage" class="message-text"></p>
+            </div>
+        </section>
+    </main>
+    <button id="pageNavLeftBtn" class="page-nav-btn page-nav-btn-left" type="button" aria-label="Go to previous page" aria-controls="pageContainer">◀</button>
+    <button id="pageNavRightBtn" class="page-nav-btn page-nav-btn-right" type="button" aria-label="Go to next page" aria-controls="pageContainer">▶</button>
+
+    <!-- 이 모달은 상태 관련 하위 모달 선택을 담당한다. -->
+    <div id="stateModal" class="modal hidden">
+        <div class="modal-content state-modal-layout">
+            <h2 class="modal-title">STATE MODAL</h2>
+            <div class="state-modal-actions">
+                <button id="openHardwareModalBtn" class="state-circle-btn hardware-circle-btn" type="button" aria-label="Open hardware upgrades">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/environment upgrade icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="openSoftwareModalBtn" class="state-circle-btn software-circle-btn" type="button" aria-label="Open software upgrades">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/software upgrade icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="openFacilityModalBtn" class="state-circle-btn facility-circle-btn" type="button" aria-label="Open facility upgrades">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/facility upgrade icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+            <button id="closeStateModalBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close state modal">
+                <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+            </button>
+        </div>
+    </div>
+
+    <!-- 이 모달은 하드웨어 업그레이드 버튼 목록을 표시한다. -->
+    <div id="hardwareUpgradeModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout">
+            <h2 class="upgrade-modal-title">Environment Upgrades</h2>
+            <div id="hardwareUpgradeList" class="upgrade-list-panel"></div>
+            <p id="hardwareUpgradeMessage" class="message-text"></p>
+            <div class="modal-actions-row">
+                <button id="closeHardwareUpgradeBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close hardware upgrade modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="backHardwareUpgradeBtn" class="modal-icon-btn back-icon-btn" type="button" aria-label="Back to state modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/back button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 이 모달은 소프트웨어 업그레이드 버튼 목록을 표시한다. -->
+    <div id="softwareUpgradeModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout">
+            <h2 class="upgrade-modal-title">Software Upgrades</h2>
+            <div id="softwareUpgradeList" class="upgrade-list-panel"></div>
+            <p id="softwareUpgradeMessage" class="message-text"></p>
+            <div class="modal-actions-row">
+                <button id="closeSoftwareUpgradeBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close software upgrade modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="backSoftwareUpgradeBtn" class="modal-icon-btn back-icon-btn" type="button" aria-label="Back to state modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/back button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 이 모달은 시설 업그레이드 준비 상태를 표시한다. -->
+    <div id="facilityUpgradeModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout">
+            <h2 class="upgrade-modal-title">Facility Upgrades</h2>
+            <p class="message-text">Facility upgrades are coming soon.</p>
+            <div class="modal-actions-row">
+                <button id="closeFacilityUpgradeBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close facility upgrade modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="backFacilityUpgradeBtn" class="modal-icon-btn back-icon-btn" type="button" aria-label="Back to state modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/back button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout setting-modal-layout">
+            <h2 class="upgrade-modal-title">Settings</h2>
+            <div class="setting-font-list" id="settingFontList">
+                <button class="setting-font-btn" type="button" data-ui-font="fredoka" aria-pressed="false">Fredoka</button>
+                <button class="setting-font-btn" type="button" data-ui-font="baloo2" aria-pressed="false">Baloo2</button>
+                <button class="setting-font-btn" type="button" data-ui-font="nunito" aria-pressed="false">Nunito</button>
+            </div>
+            <div class="setting-control-row">
+                <label class="setting-control-label" for="settingFontWeightRange">Font Weight</label>
+                <input id="settingFontWeightRange" class="setting-control-range" type="range" min="400" max="800" step="100" value="600" />
+                <span id="settingFontWeightValue" class="setting-control-value"></span>
+            </div>
+            <div class="modal-actions-row">
+                <button id="closeSettingBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close settings modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dictionaryModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout dictionary-modal-layout">
+            <h2 class="upgrade-modal-title">Encyclopedia</h2>
+            <div class="dictionary-main-actions">
+                <button id="openMarimoDictionaryBtn" class="dictionary-action-btn" type="button">Marimo</button>
+                <button id="openMerchantDictionaryBtn" class="dictionary-action-btn" type="button">Merchants</button>
+                <button id="openDialogueHistoryBtn" class="dictionary-action-btn" type="button">Dialogue History</button>
+            </div>
+            <div class="modal-actions-row">
+                <button id="closeDictionaryBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close dictionary modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="marimoDictionaryModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout dictionary-modal-layout">
+            <h2 class="upgrade-modal-title">Marimo Encyclopedia</h2>
+            <div id="marimoDictionaryGrid" class="dictionary-grid"></div>
+            <div class="modal-actions-row">
+                <button id="closeMarimoDictionaryBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close marimo dictionary modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="backMarimoDictionaryBtn" class="modal-icon-btn back-icon-btn" type="button" aria-label="Back to dictionary modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/back button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="merchantDictionaryModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout dictionary-modal-layout">
+            <h2 class="upgrade-modal-title">Merchant Encyclopedia</h2>
+            <div id="merchantDictionaryGrid" class="dictionary-grid"></div>
+            <div class="modal-actions-row">
+                <button id="closeMerchantDictionaryBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close merchant dictionary modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="backMerchantDictionaryBtn" class="modal-icon-btn back-icon-btn" type="button" aria-label="Back to dictionary modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/back button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dialogueHistoryModal" class="modal hidden">
+        <div class="modal-content upgrade-modal-layout dictionary-modal-layout">
+            <h2 class="upgrade-modal-title">Dialogue History</h2>
+            <div id="dialogueHistoryList" class="dictionary-log-list"></div>
+            <div class="modal-actions-row">
+                <button id="closeDialogueHistoryBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close dialogue history modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="backDialogueHistoryBtn" class="modal-icon-btn back-icon-btn" type="button" aria-label="Back to dictionary modal">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/back button icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="splitCompleteModal" class="modal hidden">
+        <div class="modal-content split-complete-modal-content">
+            <img class="split-complete-text-image" src="js/ui/assets/UI elements/split complete text.png" alt="Split complete" />
+            <img class="split-complete-main-image" src="js/ui/assets/UI elements/split complete image.png" alt="" aria-hidden="true" />
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+    <!-- <script type="module" src="js/devtools.js"></script> -->
+</body>
+
+</html>

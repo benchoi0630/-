@@ -1,0 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap");
+
+/* 파일 역할: 프로젝트 CSS 엔트리로 하위 스타일 시트를 순서대로 import한다.
+ * 핵심 책임: 토큰→베이스→레이아웃→컴포넌트→페이지→개발자도구 계층 로딩 순서를 고정한다.
+ * 연동 범위: HTML에서는 이 파일만 연결해 전체 스타일 번들을 적용한다. */
+
+@import "./css/foundation/tokens.css";
+@import "./css/foundation/base.css";
+@import "./css/layout/layout.css";
+@import "./css/components/components.css";
+@import "./css/pages/pages.css";
+@import "./css/devtools/devtools.css";

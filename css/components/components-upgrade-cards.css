@@ -1,0 +1,48 @@
+/* 파일 역할: 업그레이드 목록 카드와 액션 행, 가격 배지 스타일을 담당한다.
+ * 핵심 책임: 카드 간격·경계·완료 상태 불투명도 등 업그레이드 UI 규칙을 정의한다.
+ * 연동 범위: 업그레이드 모달에서 구매 가능/완료 상태를 읽기 쉽게 표현한다. */
+
+/* 업그레이드 리스트/카드/가격 배지 */
+.upgrade-list-panel {
+    display: flex;
+    flex-direction: column;
+    gap: calc(10px * var(--ui-scale));
+}
+
+.upgrade-card {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: calc(10px * var(--ui-scale));
+    display: flex;
+    flex-direction: column;
+    gap: calc(8px * var(--ui-scale));
+}
+
+.upgrade-action {
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: calc(10px * var(--ui-scale));
+}
+
+.upgrade-action-complete {
+    opacity: 0.72;
+}
+
+.upgrade-card-meta {
+    text-align: left;
+    min-height: calc(16px * var(--ui-scale));
+}
+
+.price-badge {
+    width: calc(28px * var(--ui-scale));
+    height: calc(28px * var(--ui-scale));
+    border-radius: 50%;
+    background: #fff;
+    color: var(--app-text-color);
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-size: calc(12px * var(--ui-scale));
+    font-weight: 700;
+}

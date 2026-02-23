@@ -1,0 +1,14 @@
+/* 파일 역할: 컴포넌트 CSS 하위 모듈을 묶는 허브 import 파일이다.
+ * 핵심 책임: 메인씬·마리모UI·헤더·모달·업그레이드·캔버스·도감 스타일 파일을 한 번에 로드한다.
+ * 연동 범위: 컴포넌트 계층의 로딩 순서를 안정적으로 유지한다. */
+
+/* 컴포넌트 스타일 허브 */
+@import "./components-loading-screen.css";
+@import "./components-main-scene.css";
+@import "./components-marimo-ui.css";
+@import "./components-header-actions.css";
+@import "./components-modal-shell.css";
+@import "./components-state-modal.css";
+@import "./components-upgrade-cards.css";
+@import "./components-canvas.css";
+@import "./components-dictionary.css";

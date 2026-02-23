@@ -1,0 +1,111 @@
+/* 파일 역할: 리셋에 가까운 공통 베이스 스타일과 범용 유틸 클래스를 정의한다.
+ * 핵심 책임: 본문 배경/폰트, 버튼 기본값, 메시지 텍스트, 쉘 HUD 기본 모양을 설정한다.
+ * 연동 범위: 다른 모든 스타일 레이어가 전제하는 기본 시각 규칙을 제공한다. */
+
+/* 이 섹션은 공통 색상, 타이포, 버튼, 유틸 클래스를 정의한다. */
+* {
+    box-sizing: border-box;
+}
+
+html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body {
+    margin: 0;
+    outline-width: 10px;
+    background: #0f1f1f;
+    color: var(--app-text-color);
+    font-family: var(--app-font-family);
+    font-weight: var(--app-font-weight);
+    overflow: hidden;
+    overscroll-behavior: none;
+    height: 100%;
+    min-height: var(--app-height);
+}
+
+/* 전역 텍스트 스타일은 토큰으로 일괄 관리한다. */
+:where(body, body *) {
+    color: var(--app-text-color);
+    text-shadow: var(--app-text-outline-shadow);
+}
+
+:where(body::before, body::after, body *::before, body *::after) {
+    color: var(--app-text-color);
+    text-shadow: var(--app-text-outline-shadow);
+}
+
+@supports (-webkit-text-stroke: 1px black) {
+    :where(body, body *) {
+        -webkit-text-stroke: var(--app-text-outline-webkit-width) var(--app-text-outline-color);
+        paint-order: stroke fill;
+    }
+
+    :where(body::before, body::after, body *::before, body *::after) {
+        -webkit-text-stroke: var(--app-text-outline-webkit-width) var(--app-text-outline-color);
+        paint-order: stroke fill;
+    }
+}
+
+.shells-text {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(6px * var(--ui-scale));
+    font-size: calc(16px * var(--ui-scale));
+}
+
+.shells-icon {
+    width: calc(36px * var(--ui-scale));
+    height: calc(36px * var(--ui-scale));
+    object-fit: contain;
+}
+
+.icon-button-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+:where(button) .icon-button-image {
+    filter: var(--button-icon-outline-filter, var(--app-button-icon-outline-filter, none));
+}
+
+[data-icon-outline="off"] .icon-button-image,
+.icon-button-image.icon-outline-off {
+    filter: none;
+}
+
+button {
+    padding: calc(10px * var(--ui-scale)) calc(14px * var(--ui-scale));
+    font-size: calc(14px * var(--ui-scale));
+    min-height: 44px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.message-text {
+    margin: 0;
+    min-height: 20px;
+    color: var(--app-text-color);
+    font-size: calc(13px * var(--ui-scale));
+}
+
+.message-text:empty {
+    display: none;
+}

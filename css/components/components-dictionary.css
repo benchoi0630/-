@@ -1,0 +1,97 @@
+/* 파일 역할: 도감 모달 및 도감 카드 컴포넌트의 전용 스타일을 관리한다.
+ * 핵심 책임: 도감 트리거 버튼 아이콘, 그리드 카드, 로그 리스트의 레이아웃을 구성한다.
+ * 연동 범위: 잠금/해금 상태 시각 표현과 도감 화면 공통 톤을 제공한다. */
+
+/* 도감 모달 전용 스타일 */
+
+.dictionary-modal-layout {
+    min-width: min(94vw, calc(460px * var(--ui-scale)));
+    max-width: min(94vw, calc(520px * var(--ui-scale)));
+}
+
+.dictionary-main-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: calc(8px * var(--ui-scale));
+}
+
+.dictionary-action-btn {
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    border-radius: calc(10px * var(--ui-scale));
+    background: rgba(10, 18, 23, 0.58);
+    color: var(--app-text-color);
+    font-weight: 700;
+}
+
+.dictionary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(calc(120px * var(--ui-scale)), 1fr));
+    gap: calc(10px * var(--ui-scale));
+    max-height: min(60vh, calc(420px * var(--ui-scale)));
+    overflow-y: auto;
+    padding-right: calc(2px * var(--ui-scale));
+}
+
+.dictionary-entry-card {
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: calc(10px * var(--ui-scale));
+    background: rgba(5, 12, 15, 0.38);
+    padding: calc(8px * var(--ui-scale));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(6px * var(--ui-scale));
+}
+
+.dictionary-entry-preview {
+    width: calc(96px * var(--ui-scale));
+    height: calc(96px * var(--ui-scale));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dictionary-entry-preview img {
+    width: 100%;
+    height: 100%;
+}
+
+.dictionary-entry-label {
+    font-size: calc(12px * var(--ui-scale));
+    text-align: center;
+    line-height: 1.25;
+    font-weight: 700;
+}
+
+.dictionary-entry-status {
+    font-size: calc(11px * var(--ui-scale));
+    opacity: 0.8;
+}
+
+.dictionary-entry-locked .dictionary-entry-preview {
+    filter: brightness(0) saturate(0);
+    opacity: 0.88;
+}
+
+.dictionary-entry-locked .dictionary-entry-label {
+    opacity: 0.9;
+}
+
+.dictionary-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(8px * var(--ui-scale));
+    max-height: min(60vh, calc(420px * var(--ui-scale)));
+    overflow-y: auto;
+    text-align: left;
+}
+
+.dictionary-log-item {
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: calc(10px * var(--ui-scale));
+    background: rgba(5, 12, 15, 0.36);
+    padding: calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));
+    font-size: calc(12px * var(--ui-scale));
+    line-height: 1.4;
+}

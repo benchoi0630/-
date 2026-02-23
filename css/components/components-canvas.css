@@ -1,0 +1,13 @@
+/* 파일 역할: 상세 스택 모달에서 쓰는 캔버스 표시 영역의 스타일을 정의한다.
+ * 핵심 책임: 캔버스 비율·최대 폭·배경/테두리 모양을 토큰 기반으로 고정한다.
+ * 연동 범위: 물리 렌더 캔버스가 모달 안에서 일관된 프레임으로 보이게 만든다. */
+
+/* 상세 스택 캔버스 */
+.stack-detail-canvas {
+    width: 100%;
+    max-width: calc(var(--basket-canvas-width) * 1px * var(--ui-scale));
+    aspect-ratio: var(--basket-canvas-width) / var(--basket-canvas-height);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+}
