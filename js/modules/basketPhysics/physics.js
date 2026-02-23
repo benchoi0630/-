@@ -211,7 +211,8 @@ export function updateBasketPhysics(runtime) {
     const leftWall = WORLD_PADDING;
     const rightWall = runtime.width - WORLD_PADDING;
     const bodies = runtime.bodies;
-    const basketMask = runtime?.basketShapeAsset?.getCollisionMask?.() || null;
+    const shouldUseBasketShapeCollision = runtime?.drawBasketShape !== false;
+    const basketMask = shouldUseBasketShapeCollision ? (runtime?.basketShapeAsset?.getCollisionMask?.() || null) : null;
     const basketRect = getBasketRenderLayout(runtime.width, runtime.height).basketRect;
     const basketWorldMaskBounds = getBasketMaskWorldBounds(basketMask, basketRect);
 

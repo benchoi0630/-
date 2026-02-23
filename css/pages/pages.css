@@ -84,6 +84,20 @@
     gap: calc(8px * var(--ui-scale));
 }
 
+.warehouse-item.warehouse-item-pending-silhouette {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.warehouse-item.warehouse-item-pending-silhouette .marimo {
+    filter: brightness(0) saturate(0);
+    opacity: 0.82;
+}
+
+.warehouse-item.warehouse-item-pending-silhouette .warehouse-item-volume {
+    opacity: 0.72;
+}
+
 .warehouse-item-volume {
     font-size: calc(14px * var(--ui-scale));
 }

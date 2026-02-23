@@ -5,7 +5,11 @@
 /* 공통 모달 레이어와 코너 액션 버튼 */
 .modal {
     position: fixed;
-    inset: 0;
+    top: calc(var(--header-height) * 1px * var(--ui-scale));
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--app-width);
+    height: calc(var(--app-height) - (var(--header-height) * 1px * var(--ui-scale)));
     z-index: 1200;
     background: rgba(0, 0, 0, 0.6);
     display: flex;

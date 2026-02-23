@@ -15,7 +15,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    z-index: 40;
+    z-index: 1400;
     pointer-events: none;
 }
 

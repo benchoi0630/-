@@ -22,16 +22,18 @@ export function drawBasket(runtime, spriteCache) {
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    if (basketShapeAsset?.isSpriteReady?.() === true && basketShapeAsset.sprite) {
-        ctx.drawImage(
-            basketShapeAsset.sprite,
-            layout.basketRect.x,
-            layout.basketRect.y,
-            layout.basketRect.width,
-            layout.basketRect.height
-        );
-    } else {
-        drawFallbackBasket(ctx, layout);
+    if (runtime?.drawBasketShape !== false) {
+        if (basketShapeAsset?.isSpriteReady?.() === true && basketShapeAsset.sprite) {
+            ctx.drawImage(
+                basketShapeAsset.sprite,
+                layout.basketRect.x,
+                layout.basketRect.y,
+                layout.basketRect.width,
+                layout.basketRect.height
+            );
+        } else {
+            drawFallbackBasket(ctx, layout);
+        }
     }
 
     const elapsedMs = Math.max(0, getNowMs() - runtime.faceClockStartMs);

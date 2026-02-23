@@ -2,6 +2,9 @@
 // 핵심 책임: 선택자 기반 클릭 핸들러와 상태 클래스 토글을 일관된 API로 제공한다.
 // 연동 범위: globalController 및 상세 모달 로직의 중복 모달 코드를 줄인다.
 
+const MODAL_STACK_BASE_Z_INDEX = 1200;
+let modalStackZIndex = MODAL_STACK_BASE_Z_INDEX;
+
 // 이 함수는 모달 공통 동작을 생성하고 열기와 닫기 API를 반환한다.
 export function createModalBase(options = {}) {
     const hiddenClassName = options.hiddenClassName || "hidden";
@@ -53,6 +56,8 @@ export function createModalBase(options = {}) {
     }
 
     function open() {
+        modalStackZIndex += 1;
+        rootEl.style.zIndex = String(modalStackZIndex);
         rootEl.classList.remove(hiddenClassName);
     }
 

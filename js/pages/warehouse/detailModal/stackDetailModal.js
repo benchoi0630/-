@@ -4,6 +4,11 @@
 
 import { state } from "../../../state.js";
 import { startBasketAnimation, stopBasketAnimation } from "../../../modules/basketPhysics/index.js";
+import {
+    buildTransportModeSourcePointerHooks,
+    handleTransportModeSourceTap,
+    TRANSPORT_SOURCE_KIND_WAREHOUSE_STACK
+} from "../../../global/transportMode/index.js";
 
 const DEFAULT_BASKET_CANVAS_WIDTH = 360;
 const DEFAULT_BASKET_CANVAS_HEIGHT = 300;
@@ -40,17 +45,6 @@ export function renderStackDetail(options) {
         detailSendToMainBtn.classList.add("hidden");
     }
 
-    if (stackItems.length <= 0) {
-        const emptyText = document.createElement("div");
-        emptyText.textContent = "No marimo available in this stack.";
-        detailBody.appendChild(emptyText);
-        if (activeStackRenderContext?.canvas) {
-            stopBasketAnimation({ canvas: activeStackRenderContext.canvas });
-        }
-        activeStackRenderContext = null;
-        return;
-    }
-
     const infoLine = document.createElement("div");
     infoLine.textContent = `Stack count: ${stackItems.length}`;
     detailBody.appendChild(infoLine);
@@ -76,11 +70,26 @@ export function renderStackDetail(options) {
         canvas,
         items: stackItems,
         stackRepresentativeVolume: stackMeta?.stackRepresentativeVolume,
-        onSelectItem,
+        onSelectItem: (itemId) => {
+            const handledByTransportMode = handleTransportModeSourceTap({
+                sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_STACK,
+                itemId
+            });
+
+            if (handledByTransportMode) {
+                return;
+            }
+
+            onSelectItem(itemId);
+        },
+        pointerHooks: buildTransportModeSourcePointerHooks({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_STACK
+        }),
         physicsWidth: canvasConfig.width,
         physicsHeight: canvasConfig.height,
         devicePixelRatio: canvasConfig.dpr,
-        maxRenderCount: 50
+        maxRenderCount: 50,
+        allowEmpty: true
     });
 }
 

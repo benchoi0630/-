@@ -10,6 +10,11 @@ import { createModalBase } from "../ui/modalBase.js";
 import { initDictionary } from "../ui/dictionary/initDictionary.js";
 import { initUIChangeLogic } from "../settings/uiChangeLogic.js";
 import {
+    initTransportMode,
+    renderTransportModeLayer,
+    setTransportModeVisibleItems
+} from "./transportMode/index.js";
+import {
     getGlobalElements,
     renderGlobalHeader,
     setUpgradeMessage,
@@ -62,6 +67,11 @@ function rerenderAll(context) {
     if (context.renderShopPage) {
         context.renderShopPage();
     }
+
+    setTransportModeVisibleItems({
+        sourceItems: state.warehouse
+    });
+    renderTransportModeLayer();
 }
 
 // 이 함수는 모달 아이디에 대응하는 모달 베이스 객체를 반환한다.
@@ -415,6 +425,13 @@ export function initGlobalUI(options) {
     };
 
     bindGlobalEvents(context);
+    initTransportMode({
+        renderWarehousePage: context.renderWarehousePage
+    });
+    setTransportModeVisibleItems({
+        sourceItems: state.warehouse
+    });
+    renderTransportModeLayer();
     initUIChangeLogic({
         settingModal: getGlobalElements().settingModal
     });

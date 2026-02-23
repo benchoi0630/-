@@ -121,7 +121,10 @@ function buildRuntimeStartOptions(options) {
         pixelRatio,
         maxRenderCount: resolveMaxRenderCount(options),
         buildRenderSubset: resolveRenderSubsetBuilder(options),
-        basketImageSrc: resolveBasketImageSrc(options)
+        basketImageSrc: resolveBasketImageSrc(options),
+        allowEmpty: options?.allowEmpty === true,
+        drawBasketShape: options?.drawBasketShape !== false,
+        pointerHooks: options?.pointerHooks && typeof options.pointerHooks === "object" ? options.pointerHooks : null
     };
 }
 
@@ -144,7 +147,7 @@ export function startBasketAnimation(options = {}) {
         return;
     }
 
-    if (runtimeOptions.renderItems.length <= 0) {
+    if (runtimeOptions.renderItems.length <= 0 && runtimeOptions.allowEmpty !== true) {
         stopBasketAnimation({ canvas });
         return;
     }
@@ -264,6 +267,119 @@ export function replaceBasketItem(options = {}) {
     return true;
 }
 
+function toItemIdSet(itemIds) {
+    if (!Array.isArray(itemIds)) {
+        return new Set();
+    }
+
+    const itemIdSet = new Set();
+    for (let i = 0; i < itemIds.length; i += 1) {
+        const itemId = itemIds[i];
+        if (typeof itemId === "string" && itemId.length > 0) {
+            itemIdSet.add(itemId);
+        }
+    }
+    return itemIdSet;
+}
+
+function removeBodiesByItemIdSet(runtime, itemIdSet) {
+    if (!runtime || !Array.isArray(runtime.bodies) || itemIdSet.size <= 0) {
+        return 0;
+    }
+
+    let removedCount = 0;
+    for (let i = runtime.bodies.length - 1; i >= 0; i -= 1) {
+        const body = runtime.bodies[i];
+        if (itemIdSet.has(body?.itemId)) {
+            runtime.bodies.splice(i, 1);
+            removedCount += 1;
+        }
+    }
+
+    return removedCount;
+}
+
+function getRuntimePointFromClient(runtime, clientX, clientY) {
+    if (!runtime?.canvas || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+        return null;
+    }
+
+    const rect = runtime.canvas.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width <= 0 || rect.height <= 0) {
+        return null;
+    }
+
+    return {
+        x: (clientX - rect.left) * (runtime.width / rect.width),
+        y: (clientY - rect.top) * (runtime.height / rect.height)
+    };
+}
+
+export function removeBasketItems(options = {}) {
+    const itemIdSet = toItemIdSet(options?.itemIds);
+    if (itemIdSet.size <= 0) {
+        return 0;
+    }
+
+    const targetCanvas = normalizeCanvas(options?.canvas);
+    if (targetCanvas) {
+        const runtime = basketRuntimeByCanvas.get(targetCanvas);
+        return removeBodiesByItemIdSet(runtime, itemIdSet);
+    }
+
+    let removedCount = 0;
+    for (const runtime of basketRuntimeByCanvas.values()) {
+        removedCount += removeBodiesByItemIdSet(runtime, itemIdSet);
+    }
+
+    return removedCount;
+}
+
+export function pullBasketItemsTowardClientPoint(options = {}) {
+    const targetCanvas = normalizeCanvas(options?.canvas);
+    if (!targetCanvas) {
+        return 0;
+    }
+
+    const runtime = basketRuntimeByCanvas.get(targetCanvas);
+    if (!runtime || !Array.isArray(runtime.bodies)) {
+        return 0;
+    }
+
+    const itemIdSet = toItemIdSet(options?.itemIds);
+    if (itemIdSet.size <= 0) {
+        return 0;
+    }
+
+    const targetPoint = getRuntimePointFromClient(runtime, options?.clientX, options?.clientY);
+    if (!targetPoint) {
+        return 0;
+    }
+
+    const pullStrengthRaw = Number.isFinite(options?.pullStrength) ? options.pullStrength : 0.28;
+    const pullStrength = clamp(pullStrengthRaw, 0.05, 0.7);
+    let movedCount = 0;
+
+    for (let i = 0; i < runtime.bodies.length; i += 1) {
+        const body = runtime.bodies[i];
+        if (!itemIdSet.has(body?.itemId)) {
+            continue;
+        }
+
+        const dx = targetPoint.x - body.x;
+        const dy = targetPoint.y - body.y;
+        body.x += dx * pullStrength;
+        body.y += dy * pullStrength;
+        body.x = clamp(body.x, WORLD_PADDING + body.radius, runtime.width - WORLD_PADDING - body.radius);
+        body.y = clamp(body.y, WORLD_PADDING + body.radius, runtime.height - WORLD_PADDING - body.radius);
+        body.vx = (body.vx * 0.78) + (dx * 0.05);
+        body.vy = (body.vy * 0.78) + (dy * 0.05);
+        movedCount += 1;
+    }
+
+    return movedCount;
+}
+
 function ensureBasketAnimationLoop() {
     if (basketAnimationFrameId !== null || basketRuntimeByCanvas.size <= 0) {
         return;
@@ -311,7 +427,9 @@ function createBasketRuntime(options) {
         pointerInteraction: null,
         maxRenderCount: options.maxRenderCount,
         buildRenderSubset: options.buildRenderSubset,
-        basketShapeAsset: getOrCreateBasketShapeAsset(options.basketImageSrc)
+        basketShapeAsset: getOrCreateBasketShapeAsset(options.basketImageSrc),
+        drawBasketShape: options.drawBasketShape !== false,
+        pointerHooks: options.pointerHooks
     };
 
     updateRuntimeCanvasMetrics(runtime, options.width, options.height, options.pixelRatio);
@@ -328,6 +446,8 @@ function reconcileBasketRuntime(runtime, options) {
     runtime.maxRenderCount = options.maxRenderCount;
     runtime.buildRenderSubset = options.buildRenderSubset;
     runtime.basketShapeAsset = getOrCreateBasketShapeAsset(options.basketImageSrc);
+    runtime.drawBasketShape = options.drawBasketShape !== false;
+    runtime.pointerHooks = options.pointerHooks;
 
     updateRuntimeCanvasMetrics(runtime, options.width, options.height, options.pixelRatio);
 

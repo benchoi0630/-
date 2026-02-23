@@ -5,14 +5,29 @@
 import { state, saveState } from "../../state.js";
 import { renderMarimoVisual } from "../../ui/marimoRender.js";
 import { getMarimoVolume } from "../../utils/marimoData.js";
-import { closeWarehouseDetailModal, initWarehouseDetailModal, openWarehouseItemDetail, openWarehouseStackDetail } from "./detailModal/detailModal.js";
+import { initWarehouseDetailModal, openWarehouseItemDetail, openWarehouseStackDetail } from "./detailModal/detailModal.js";
 import { cycleStackMode, ensureStackModeButton, getCurrentStackMode, renderStackModeButton, renderWarehouseByMode } from "./stacking.js";
 import { startBasketAnimation, stopBasketAnimation } from "../../modules/basketPhysics/index.js";
 import { bindEventOnce } from "../../utils/domEvents.js";
+import {
+    buildTransportModeSourcePointerHooks,
+    endTransportModeExternalSweep,
+    handleTransportModeSourceTap,
+    isTransportModeEnabled,
+    moveTransportModeExternalSweep,
+    setTransportModeVisibleItems,
+    startTransportModeExternalSweep,
+    TRANSPORT_SOURCE_KIND_WAREHOUSE_MAIN,
+    TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST
+} from "../../global/transportMode/index.js";
 
 // 이 변수는 창고 메시지 자동 삭제 타이머를 저장한다.
 let clearWarehouseMessageTimerId = null;
 let warehouseViewMode = "physics";
+let activeWarehousePhysicsCanvas = null;
+const noStackSweepState = {
+    pointerId: null
+};
 
 /** 이 함수는 창고 페이지 모듈을 초기화하고 렌더 함수를 반환한다. */
 export function initWarehousePage(options = {}) {
@@ -37,6 +52,9 @@ export function renderWarehousePage() {
 
     renderWarehouseViewToggleButton(elements);
     ensureWarehouseMessage(elements);
+    setTransportModeVisibleItems({
+        sourceItems: state.warehouse
+    });
 
     if (warehouseViewMode === "list") {
         renderWarehouseListMode(elements);
@@ -66,6 +84,18 @@ function handleNoStackItemClick(itemId) {
         return;
     }
 
+    if (isTransportModeEnabled()) {
+        const handledByTransportMode = handleTransportModeSourceTap({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            itemId
+        });
+
+        if (handledByTransportMode) {
+            markNoStackCardsAsPending([itemId]);
+        }
+        return;
+    }
+
     openWarehouseItemDetail(itemId);
 }
 
@@ -82,6 +112,176 @@ function bindWarehouseEvents() {
 
     bindEventOnce(viewToggleBtn, "click", "listenerWarehouseViewToggleBound", handleWarehouseViewToggle);
     bindEventOnce(button, "click", "listenerWarehouseStackModeBound", handleStackModeCycle);
+    bindWarehouseNoStackSweepEvents(elements);
+}
+
+function bindWarehouseNoStackSweepEvents(elements) {
+    const grid = elements.warehouseGrid;
+    if (!grid) {
+        return;
+    }
+
+    bindEventOnce(grid, "pointerdown", "listenerWarehouseNoStackSweepDownBound", (event) => {
+        if (!canUseNoStackSweepCapture()) {
+            return;
+        }
+
+        const itemId = resolveNoStackItemIdFromNode(event.target);
+        if (!itemId) {
+            return;
+        }
+
+        noStackSweepState.pointerId = event.pointerId;
+        const started = startTransportModeExternalSweep({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            pointerId: event.pointerId,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+
+        if (!started) {
+            noStackSweepState.pointerId = null;
+            return;
+        }
+
+        const capturedItemIds = moveTransportModeExternalSweep({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            pointerId: event.pointerId,
+            itemId,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+        markNoStackCardsAsPending(capturedItemIds);
+
+        if (typeof grid.setPointerCapture === "function") {
+            try {
+                grid.setPointerCapture(event.pointerId);
+            } catch {
+                // pointer capture를 지원하지 않는 경우를 무시한다.
+            }
+        }
+
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+    });
+
+    bindEventOnce(grid, "pointermove", "listenerWarehouseNoStackSweepMoveBound", (event) => {
+        if (noStackSweepState.pointerId === null || event.pointerId !== noStackSweepState.pointerId) {
+            return;
+        }
+
+        if (!canUseNoStackSweepCapture()) {
+            finishNoStackSweepCapture(event);
+            return;
+        }
+
+        const targetAtPoint = document.elementFromPoint(event.clientX, event.clientY);
+        const itemId = resolveNoStackItemIdFromNode(targetAtPoint);
+        const capturedItemIds = moveTransportModeExternalSweep({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            pointerId: event.pointerId,
+            itemId,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+        markNoStackCardsAsPending(capturedItemIds);
+
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+    });
+
+    bindEventOnce(grid, "pointerup", "listenerWarehouseNoStackSweepUpBound", (event) => {
+        if (event.pointerId !== noStackSweepState.pointerId) {
+            return;
+        }
+
+        finishNoStackSweepCapture(event);
+    });
+
+    bindEventOnce(grid, "pointercancel", "listenerWarehouseNoStackSweepCancelBound", (event) => {
+        if (event.pointerId !== noStackSweepState.pointerId) {
+            return;
+        }
+
+        finishNoStackSweepCapture(event);
+    });
+
+    bindEventOnce(grid, "lostpointercapture", "listenerWarehouseNoStackSweepLostCaptureBound", (event) => {
+        if (event.pointerId !== noStackSweepState.pointerId) {
+            return;
+        }
+
+        finishNoStackSweepCapture(event);
+    });
+}
+
+function canUseNoStackSweepCapture() {
+    return warehouseViewMode === "list"
+        && getCurrentStackMode(state) === "no_stack"
+        && isTransportModeEnabled();
+}
+
+function resolveNoStackItemIdFromNode(node) {
+    const card = node?.closest?.(".warehouse-item[data-warehouse-item-id]");
+    const itemId = card?.dataset?.warehouseItemId;
+    if (typeof itemId === "string" && itemId.length > 0) {
+        return itemId;
+    }
+
+    return "";
+}
+
+function markNoStackCardsAsPending(itemIds) {
+    if (!Array.isArray(itemIds) || itemIds.length <= 0) {
+        return;
+    }
+
+    const elements = getWarehouseElements();
+    const grid = elements.warehouseGrid;
+    if (!grid) {
+        return;
+    }
+
+    const targetIdSet = new Set();
+    for (let i = 0; i < itemIds.length; i += 1) {
+        const itemId = itemIds[i];
+        if (typeof itemId === "string" && itemId.length > 0) {
+            targetIdSet.add(itemId);
+        }
+    }
+
+    if (targetIdSet.size <= 0) {
+        return;
+    }
+
+    const cards = grid.querySelectorAll(".warehouse-item[data-warehouse-item-id]");
+    for (let i = 0; i < cards.length; i += 1) {
+        const card = cards[i];
+        if (!targetIdSet.has(card.dataset.warehouseItemId || "")) {
+            continue;
+        }
+
+        card.classList.add("warehouse-item-pending-silhouette");
+    }
+}
+
+function finishNoStackSweepCapture(event) {
+    const elements = getWarehouseElements();
+    if (elements.warehouseGrid && typeof elements.warehouseGrid.releasePointerCapture === "function") {
+        try {
+            elements.warehouseGrid.releasePointerCapture(event.pointerId);
+        } catch {
+            // pointer capture가 이미 해제된 경우를 무시한다.
+        }
+    }
+
+    endTransportModeExternalSweep({
+        sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+        pointerId: event.pointerId
+    });
+    noStackSweepState.pointerId = null;
 }
 
 // 이 함수는 창고 카드 UI 한 개를 생성한다.
@@ -261,14 +461,6 @@ function renderWarehousePhysicsMode(elements) {
         return;
     }
 
-    if (state.warehouse.length <= 0) {
-        elements.warehousePhysicsStage.classList.add("hidden");
-        elements.warehouseEmptyText.classList.remove("hidden");
-        stopBasketAnimation();
-        closeWarehouseDetailModal();
-        return;
-    }
-
     elements.warehouseEmptyText.classList.add("hidden");
     elements.warehousePhysicsStage.classList.remove("hidden");
 
@@ -276,6 +468,7 @@ function renderWarehousePhysicsMode(elements) {
     if (!canvas) {
         return;
     }
+    activeWarehousePhysicsCanvas = canvas;
 
     const width = Math.max(240, elements.warehousePhysicsStage.clientWidth || elements.warehousePageContent.clientWidth || 360);
     const height = Math.max(180, elements.warehousePhysicsStage.clientHeight || elements.warehousePageContent.clientHeight || 320);
@@ -284,18 +477,40 @@ function renderWarehousePhysicsMode(elements) {
         canvas,
         items: state.warehouse,
         stackRepresentativeVolume: getWarehouseRepresentativeVolume(state.warehouse),
-        onSelectItem: (itemId) => openWarehouseItemDetail(itemId),
+        onSelectItem: (itemId) => {
+            const handledByTransportMode = handleTransportModeSourceTap({
+                sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_MAIN,
+                itemId
+            });
+
+            if (handledByTransportMode) {
+                return;
+            }
+
+            openWarehouseItemDetail(itemId);
+        },
+        pointerHooks: buildTransportModeSourcePointerHooks({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_MAIN
+        }),
         physicsWidth: width,
         physicsHeight: height,
         devicePixelRatio: window.devicePixelRatio || 1,
-        maxRenderCount: 50
+        maxRenderCount: 50,
+        allowEmpty: true
+    });
+
+    setTransportModeVisibleItems({
+        sourceItems: state.warehouse
     });
 }
 
 // 이 함수는 기존 카드 기반 창고 목록 보기를 렌더링한다.
 function renderWarehouseListMode(elements) {
     applyWarehouseContentModeClass(elements, "list");
-    stopBasketAnimation();
+    if (activeWarehousePhysicsCanvas) {
+        stopBasketAnimation({ canvas: activeWarehousePhysicsCanvas });
+        activeWarehousePhysicsCanvas = null;
+    }
 
     if (elements.warehousePhysicsStage) {
         elements.warehousePhysicsStage.classList.add("hidden");
@@ -312,7 +527,6 @@ function renderWarehouseListMode(elements) {
 
     if (state.warehouse.length === 0) {
         elements.warehouseEmptyText.classList.remove("hidden");
-        closeWarehouseDetailModal();
         return;
     }
 

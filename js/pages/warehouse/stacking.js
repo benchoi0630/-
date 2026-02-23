@@ -97,6 +97,8 @@ function renderNoStackMode(options) {
         const card = options.createWarehouseCard(`Vol: ${volume.toFixed(2)}`, undefined, () => {
             options.onNoStackItemClick(item.id);
         }, item);
+        card.dataset.warehouseItemId = item.id;
+        card.dataset.warehouseCardKind = "single-item";
         options.elements.warehouseGrid.appendChild(card);
     }
 }

@@ -8,11 +8,13 @@ import { renderSingleDetail } from "./singleDetailModal.js";
 import { pickRandomStackItemId, renderStackDetail, stopStackDetail } from "./stackDetailModal.js";
 import { replaceBasketItem } from "../../../modules/basketPhysics/index.js";
 import { bindEventOnce } from "../../../utils/domEvents.js";
+import { TRANSPORT_WAREHOUSE_CHANGED_EVENT } from "../../../global/transportMode/transportModeConstants.js";
 
 // 이 섹션은 창고 상세 모달 내부 상태와 외부 콜백 컨텍스트를 관리한다.
 let selectedWarehouseItemId = null;
 let warehouseModalMode = "item_detail";
 let activeStackMeta = null;
+let transportWarehouseSyncBound = false;
 const detailModalContext = {
     renderWarehousePage: () => {},
     renderMainPage: () => {},
@@ -38,6 +40,8 @@ export function initWarehouseDetailModal(options = {}) {
             closeWarehouseDetailModal();
         }
     });
+
+    bindTransportWarehouseSync();
 }
 
 /** 이 함수는 창고 상세 모달을 닫고 선택 상태와 물리 루프를 초기화한다. */
@@ -123,6 +127,23 @@ function renderWarehouseDetailModal() {
     }
 
     modal.classList.remove("hidden");
+}
+
+function bindTransportWarehouseSync() {
+    if (transportWarehouseSyncBound) {
+        return;
+    }
+
+    window.addEventListener(TRANSPORT_WAREHOUSE_CHANGED_EVENT, () => {
+        const elements = getDetailElements();
+        if (!elements.detailModal || elements.detailModal.classList.contains("hidden")) {
+            return;
+        }
+
+        renderWarehouseDetailModal();
+    });
+
+    transportWarehouseSyncBound = true;
 }
 
 // 이 함수는 스택 모드에서 랜덤 아이템 하나를 뽑아 상세 모드로 전환한다.
