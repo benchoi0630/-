@@ -11,32 +11,19 @@ import {
     setTransportModeTransportItems
 } from "./transportModeState.js";
 
-function getItemId(item) {
-    if (item && typeof item.id === "string" && item.id.length > 0) {
-        return item.id;
+export const TRANSPORT_WAREHOUSE_CHANGED_EVENT = "marimo:transport-warehouse-changed";
+
+export function notifyTransportWarehouseChanged() {
+    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
+        return;
     }
 
-    return "";
-}
-
-export function toUniqueItemIds(itemIds) {
-    const uniqueIds = [];
-    const seen = new Set();
-
-    if (!Array.isArray(itemIds)) {
-        return uniqueIds;
+    if (typeof CustomEvent === "function") {
+        window.dispatchEvent(new CustomEvent(TRANSPORT_WAREHOUSE_CHANGED_EVENT));
+        return;
     }
 
-    for (let i = 0; i < itemIds.length; i += 1) {
-        const itemId = itemIds[i];
-        if (typeof itemId !== "string" || itemId.length <= 0 || seen.has(itemId)) {
-            continue;
-        }
-        seen.add(itemId);
-        uniqueIds.push(itemId);
-    }
-
-    return uniqueIds;
+    window.dispatchEvent(new Event(TRANSPORT_WAREHOUSE_CHANGED_EVENT));
 }
 
 function splitWarehouseByItemIds(itemIds) {
@@ -163,6 +150,37 @@ export function movePendingItemsToTransport(itemIds) {
     return movedIds;
 }
 
+export function removeTransportItemsByIds(itemIds) {
+    const targetIdSet = new Set(toUniqueItemIds(itemIds));
+    if (targetIdSet.size <= 0) {
+        return [];
+    }
+
+    const snapshot = getTransportModeRuntimeState();
+    const nextTransportItems = [];
+    const removedItems = [];
+    const removedItemIdSet = new Set();
+
+    for (let i = 0; i < snapshot.transportItems.length; i += 1) {
+        const item = snapshot.transportItems[i];
+        const itemId = getItemId(item);
+        if (!itemId || !targetIdSet.has(itemId) || removedItemIdSet.has(itemId)) {
+            nextTransportItems.push(item);
+            continue;
+        }
+
+        removedItems.push({ ...item });
+        removedItemIdSet.add(itemId);
+    }
+
+    if (removedItems.length <= 0) {
+        return [];
+    }
+
+    setTransportModeTransportItems(nextTransportItems);
+    return removedItems;
+}
+
 export function syncSourceItemsFromWarehouse() {
     setTransportModeSourceItems(state.warehouse);
 }
@@ -227,4 +245,33 @@ export function captureItemsIntoPending(itemIds) {
     }
 
     return appendedIds;
+}
+
+// 안전 보조 함수: 데이터 정규화와 중복 방지용 유틸을 파일 하단에 모아 둔다.
+function getItemId(item) {
+    if (item && typeof item.id === "string" && item.id.length > 0) {
+        return item.id;
+    }
+
+    return "";
+}
+
+export function toUniqueItemIds(itemIds) {
+    const uniqueIds = [];
+    const seen = new Set();
+
+    if (!Array.isArray(itemIds)) {
+        return uniqueIds;
+    }
+
+    for (let i = 0; i < itemIds.length; i += 1) {
+        const itemId = itemIds[i];
+        if (typeof itemId !== "string" || itemId.length <= 0 || seen.has(itemId)) {
+            continue;
+        }
+        seen.add(itemId);
+        uniqueIds.push(itemId);
+    }
+
+    return uniqueIds;
 }

@@ -3,11 +3,39 @@
 // 연동 범위: 상점 구매 액션이 호출하는 핵심 트랜잭션 함수(`attemptMerchantTrade`)를 제공한다.
 
 import {
+    collectWarehouseIndicesForOffer,
     consumeWarehouseByOffer,
     describeOfferSpec,
     refreshMerchantOfferSpec,
     resolveMerchantOfferSpec
 } from "./merchantOffer.js";
+
+function buildTradeResult(options = {}) {
+    return {
+        ok: options?.ok === true,
+        message: typeof options?.message === "string" ? options.message : "",
+        silent: options?.silent === true,
+        shellsEarned: Number.isFinite(options?.shellsEarned) ? options.shellsEarned : 0,
+        progressionMessages: Array.isArray(options?.progressionMessages) ? options.progressionMessages : [],
+        consumedItemIds: Array.isArray(options?.consumedItemIds) ? options.consumedItemIds : []
+    };
+}
+
+function buildInvalidTradeResult() {
+    return buildTradeResult({
+        ok: false,
+        message: "",
+        silent: true
+    });
+}
+
+function buildNotEnoughTradeResult(offerSpec) {
+    return buildTradeResult({
+        ok: false,
+        message: `not enough marimo! need: ${describeOfferSpec(offerSpec)}`,
+        silent: false
+    });
+}
 
 // 이 함수는 보상 데이터를 상태에 적용하고 획득한 쉘 수를 반환한다.
 function applyRewardsToState(currentState, rewards) {
@@ -40,47 +68,16 @@ function canAttemptPurchase(currentState, merchant, merchantState, now) {
     return merchantState.unlocked === true;
 }
 
-// 이 함수는 상인 거래 한 번을 수행하고 결과를 공통 형태로 반환한다.
-export function attemptMerchantTrade(options) {
+function completeMerchantTrade(options) {
     const currentState = options?.currentState;
     const merchant = options?.merchant;
     const merchantState = options?.merchantState;
     const now = Number.isFinite(options?.now) ? options.now : Date.now();
     const applyProgressionFn = typeof options?.applyProgressionFn === "function" ? options.applyProgressionFn : null;
-    const progressionReason = typeof options?.progressionReason === "string" && options.progressionReason ? options.progressionReason : "merchant_purchase";
-
-    if (!currentState || !merchant || !merchantState) {
-        return {
-            ok: false,
-            message: "",
-            silent: true,
-            shellsEarned: 0,
-            progressionMessages: []
-        };
-    }
-
-    if (!canAttemptPurchase(currentState, merchant, merchantState, now)) {
-        return {
-            ok: false,
-            message: "",
-            silent: true,
-            shellsEarned: 0,
-            progressionMessages: []
-        };
-    }
-
-    const offerSpec = resolveMerchantOfferSpec(currentState, merchant, merchantState, now);
-    const consumeResult = consumeWarehouseByOffer(currentState, offerSpec);
-
-    if (!consumeResult.ok) {
-        return {
-            ok: false,
-            message: `not enough marimo! need: ${describeOfferSpec(offerSpec)}`,
-            silent: false,
-            shellsEarned: 0,
-            progressionMessages: []
-        };
-    }
+    const progressionReason = typeof options?.progressionReason === "string" && options.progressionReason
+        ? options.progressionReason
+        : "merchant_purchase";
+    const consumedItemIds = Array.isArray(options?.consumedItemIds) ? options.consumedItemIds : [];
 
     const rewards = merchant.getRewards(currentState, merchantState);
     const shellsEarned = applyRewardsToState(currentState, rewards);
@@ -97,11 +94,118 @@ export function attemptMerchantTrade(options) {
         merchant.afterProgressionOnSale(currentState, merchantState, now);
     }
 
-    return {
+    return buildTradeResult({
         ok: true,
         message: "Trade completed.",
         silent: false,
         shellsEarned,
-        progressionMessages
-    };
+        progressionMessages,
+        consumedItemIds
+    });
+}
+
+// 이 함수는 상인 거래 한 번을 수행하고 결과를 공통 형태로 반환한다.
+export function attemptMerchantTrade(options) {
+    const currentState = options?.currentState;
+    const merchant = options?.merchant;
+    const merchantState = options?.merchantState;
+    const now = Number.isFinite(options?.now) ? options.now : Date.now();
+    const applyProgressionFn = typeof options?.applyProgressionFn === "function" ? options.applyProgressionFn : null;
+    const progressionReason = typeof options?.progressionReason === "string" && options.progressionReason ? options.progressionReason : "merchant_purchase";
+
+    if (!currentState || !merchant || !merchantState) {
+        return buildInvalidTradeResult();
+    }
+
+    if (!canAttemptPurchase(currentState, merchant, merchantState, now)) {
+        return buildInvalidTradeResult();
+    }
+
+    const offerSpec = resolveMerchantOfferSpec(currentState, merchant, merchantState, now);
+    const consumeResult = consumeWarehouseByOffer(currentState, offerSpec);
+
+    if (!consumeResult.ok) {
+        return buildNotEnoughTradeResult(offerSpec);
+    }
+
+    return completeMerchantTrade({
+        currentState,
+        merchant,
+        merchantState,
+        now,
+        applyProgressionFn,
+        progressionReason
+    });
+}
+
+export function attemptMerchantTradeWithInventory(options) {
+    const currentState = options?.currentState;
+    const merchant = options?.merchant;
+    const merchantState = options?.merchantState;
+    const now = Number.isFinite(options?.now) ? options.now : Date.now();
+    const inventoryItems = Array.isArray(options?.inventoryItems) ? options.inventoryItems : [];
+    const consumeMatchedItemsFn = typeof options?.consumeMatchedItemsFn === "function"
+        ? options.consumeMatchedItemsFn
+        : null;
+    const applyProgressionFn = typeof options?.applyProgressionFn === "function" ? options.applyProgressionFn : null;
+    const progressionReason = typeof options?.progressionReason === "string" && options.progressionReason
+        ? options.progressionReason
+        : "merchant_purchase";
+
+    if (!currentState || !merchant || !merchantState || !consumeMatchedItemsFn) {
+        return buildInvalidTradeResult();
+    }
+
+    if (!canAttemptPurchase(currentState, merchant, merchantState, now)) {
+        return buildInvalidTradeResult();
+    }
+
+    const offerSpec = resolveMerchantOfferSpec(currentState, merchant, merchantState, now);
+    const matched = collectWarehouseIndicesForOffer(inventoryItems, offerSpec);
+
+    if (!matched.ok) {
+        return buildNotEnoughTradeResult(matched.offerSpec);
+    }
+
+    const selectedItems = [];
+    for (let i = 0; i < matched.selectedIndexes.length; i += 1) {
+        const index = matched.selectedIndexes[i];
+        if (!Number.isFinite(index) || index < 0 || index >= inventoryItems.length) {
+            return buildNotEnoughTradeResult(matched.offerSpec);
+        }
+
+        const item = inventoryItems[index];
+        if (!item || typeof item !== "object") {
+            return buildNotEnoughTradeResult(matched.offerSpec);
+        }
+
+        selectedItems.push(item);
+    }
+
+    const consumedItemIds = [];
+    for (let i = 0; i < selectedItems.length; i += 1) {
+        const itemId = selectedItems[i]?.id;
+        if (typeof itemId === "string" && itemId.length > 0) {
+            consumedItemIds.push(itemId);
+        }
+    }
+
+    const didConsume = consumeMatchedItemsFn({
+        selectedIndexes: [...matched.selectedIndexes],
+        selectedItems: [...selectedItems],
+        offerSpec: matched.offerSpec
+    });
+    if (didConsume !== true) {
+        return buildNotEnoughTradeResult(matched.offerSpec);
+    }
+
+    return completeMerchantTrade({
+        currentState,
+        merchant,
+        merchantState,
+        now,
+        applyProgressionFn,
+        progressionReason,
+        consumedItemIds
+    });
 }

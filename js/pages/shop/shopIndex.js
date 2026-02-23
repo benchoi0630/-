@@ -5,6 +5,7 @@
 import { state, saveState } from "../../state.js";
 import { merchantList } from "../../merchants/merchantsIndex.js";
 import { getShellHudElement } from "../../global/globalView.js";
+import { setTransportModeBasketDropHandler } from "../../global/transportMode/index.js";
 import { SHOP_SLOT_COUNT, buildSlotAssignments, updateMerchantPresence } from "./shopPresence.js";
 import {
     applyShopGridLayout,
@@ -108,6 +109,14 @@ const tradeController = createShopTradeController({
 
 setShopPurchaseHandler((merchantId, sourceElement) => {
     void tradeController.attemptMerchantPurchase(merchantId, sourceElement);
+});
+
+setTransportModeBasketDropHandler((payload = {}) => {
+    void tradeController.attemptMerchantPurchaseByTransportItem({
+        merchantId: payload?.merchantId,
+        transportItemId: payload?.itemId,
+        sourceElement: payload?.merchantNode
+    });
 });
 
 function startShopSpawnLoop() {

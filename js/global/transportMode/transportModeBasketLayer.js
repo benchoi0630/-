@@ -1,6 +1,6 @@
-// 파일 역할: 운송모드 캔버스(뜰채/운송 바구니)의 basket physics 런타임을 제어한다.
-// 핵심 책임: 모드 상태와 아이템 배열에 따라 각 캔버스의 애니메이션 시작/중지를 수행한다.
-// 연동 범위: transportMode controller가 렌더 단계마다 호출하는 물리 어댑터다.
+// 파일 역할: basket physics로 운송 바구니/뜨룰채 캔버스 레이어를 구동한다.
+// 핵심 책임: 운송모드 상태에 따라 net/basket 캔버스 애니메이션의 시작·중지를 제어한다.
+// 연동 범위: transportMode index가 렌더 단계에서 호출하는 바구니 레이어 어댑터다.
 
 import { getMarimoVolume } from "../../utils/marimoData.js";
 import { startBasketAnimation, stopBasketAnimation } from "../../modules/basketPhysics/index.js";
@@ -60,6 +60,7 @@ function renderFieldPhysics(options) {
         items,
         stackRepresentativeVolume: getRepresentativeVolume(items),
         onSelectItem: () => {},
+        pointerHooks: options.pointerHooks,
         physicsWidth: size.width,
         physicsHeight: size.height,
         devicePixelRatio: window.devicePixelRatio || 1,
@@ -70,7 +71,7 @@ function renderFieldPhysics(options) {
     });
 }
 
-export function renderTransportModePhysics(options = {}) {
+export function renderTransportBasketLayer(options = {}) {
     const enabled = options?.enabled === true;
 
     renderFieldPhysics({
@@ -89,6 +90,7 @@ export function renderTransportModePhysics(options = {}) {
         enabled,
         canvas: options.basketCanvas,
         items: options.transportItems,
+        pointerHooks: options.transportPointerHooks,
         maxRenderCount: BASKET_MAX_RENDER_COUNT,
         fallbackWidth: 360,
         fallbackHeight: 620,

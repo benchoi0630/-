@@ -5,8 +5,13 @@
 import { state, saveState } from "../../state.js";
 import { applyProgression } from "../../progression/progressionLogic.js";
 import { merchantRegistry } from "../../merchants/merchantsIndex.js";
-import { attemptMerchantTrade } from "../../merchants/merchantTrade.js";
+import { attemptMerchantTrade, attemptMerchantTradeWithInventory } from "../../merchants/merchantTrade.js";
 import { setMerchantImageVariant } from "../../merchants/merchantUI.js";
+import {
+    consumeTransportModeItemsByIds,
+    getTransportModeTransportItems,
+    isTransportModeEnabled
+} from "../../global/transportMode/index.js";
 
 function getMerchantState(merchantId) {
     const merchantState = state.merchants?.[merchantId];
@@ -98,29 +103,72 @@ export function createShopTradeController(options = {}) {
         return motionSourceElement;
     }
 
-    async function attemptMerchantPurchase(merchantId, sourceElement) {
-        const now = Date.now();
-        const merchant = merchantRegistry[merchantId];
-        const merchantState = getMerchantState(merchantId);
-
-        if (!merchant || !merchantState) {
-            return;
+    function collectItemIdsFromTradeItems(items) {
+        if (!Array.isArray(items) || items.length <= 0) {
+            return [];
         }
 
-        const tradeResult = attemptMerchantTrade({
-            currentState: state,
-            merchant,
-            merchantState,
-            now,
-            applyProgressionFn: applyProgression,
-            progressionReason: "merchant_purchase"
-        });
+        const itemIds = [];
+        for (let i = 0; i < items.length; i += 1) {
+            const itemId = items[i]?.id;
+            if (typeof itemId !== "string" || itemId.length <= 0) {
+                return [];
+            }
+            itemIds.push(itemId);
+        }
 
-        if (!tradeResult.ok) {
-            if (!tradeResult.silent && tradeResult.message) {
+        return itemIds;
+    }
+
+    function consumeTransportItemsStrictByIds(itemIds) {
+        if (!Array.isArray(itemIds) || itemIds.length <= 0) {
+            return false;
+        }
+
+        const requestedIdSet = new Set();
+        for (let i = 0; i < itemIds.length; i += 1) {
+            const itemId = itemIds[i];
+            if (typeof itemId !== "string" || itemId.length <= 0 || requestedIdSet.has(itemId)) {
+                return false;
+            }
+            requestedIdSet.add(itemId);
+        }
+
+        const transportItems = getTransportModeTransportItems();
+        const availableIdSet = new Set();
+        for (let i = 0; i < transportItems.length; i += 1) {
+            const itemId = transportItems[i]?.id;
+            if (typeof itemId === "string" && itemId.length > 0) {
+                availableIdSet.add(itemId);
+            }
+        }
+
+        for (const itemId of requestedIdSet) {
+            if (!availableIdSet.has(itemId)) {
+                return false;
+            }
+        }
+
+        const removedItems = consumeTransportModeItemsByIds(itemIds);
+        return removedItems.length === itemIds.length;
+    }
+
+    function consumeMatchedTransportItems(context) {
+        const selectedItems = Array.isArray(context?.selectedItems) ? context.selectedItems : [];
+        const itemIds = collectItemIdsFromTradeItems(selectedItems);
+        if (itemIds.length !== selectedItems.length) {
+            return false;
+        }
+
+        return consumeTransportItemsStrictByIds(itemIds);
+    }
+
+    function applyTradeResult(merchantId, sourceElement, tradeResult) {
+        if (!tradeResult?.ok) {
+            if (!tradeResult?.silent && tradeResult?.message) {
                 setShopMessage(tradeResult.message);
             }
-            return;
+            return false;
         }
 
         const progressionMessages = Array.isArray(tradeResult.progressionMessages) ? tradeResult.progressionMessages : [];
@@ -137,10 +185,87 @@ export function createShopTradeController(options = {}) {
             const unlockMessage = progressionMessages[0];
             setShopMessage(unlockMessage);
             showGlobalMessage(unlockMessage);
-            return;
+            return true;
         }
 
         setShopMessage(tradeResult.message);
+        return true;
+    }
+
+    async function attemptMerchantPurchase(merchantId, sourceElement) {
+        const now = Date.now();
+        const merchant = merchantRegistry[merchantId];
+        const merchantState = getMerchantState(merchantId);
+
+        if (!merchant || !merchantState) {
+            return;
+        }
+
+        const shouldUseTransportItems = isTransportModeEnabled();
+        const tradeResult = shouldUseTransportItems
+            ? attemptMerchantTradeWithInventory({
+                currentState: state,
+                merchant,
+                merchantState,
+                now,
+                inventoryItems: getTransportModeTransportItems(),
+                consumeMatchedItemsFn: consumeMatchedTransportItems,
+                applyProgressionFn: applyProgression,
+                progressionReason: "merchant_purchase"
+            })
+            : attemptMerchantTrade({
+                currentState: state,
+                merchant,
+                merchantState,
+                now,
+                applyProgressionFn: applyProgression,
+                progressionReason: "merchant_purchase"
+            });
+
+        applyTradeResult(merchantId, sourceElement, tradeResult);
+    }
+
+    async function attemptMerchantPurchaseByTransportItem(options = {}) {
+        const merchantId = typeof options?.merchantId === "string" ? options.merchantId : "";
+        const transportItemId = typeof options?.transportItemId === "string" ? options.transportItemId : "";
+        const sourceElement = options?.sourceElement;
+
+        if (!merchantId || !transportItemId || !isTransportModeEnabled()) {
+            return false;
+        }
+
+        const now = Date.now();
+        const merchant = merchantRegistry[merchantId];
+        const merchantState = getMerchantState(merchantId);
+        if (!merchant || !merchantState) {
+            return false;
+        }
+
+        const transportItems = getTransportModeTransportItems();
+        const targetItem = transportItems.find((item) => item?.id === transportItemId);
+        if (!targetItem) {
+            return false;
+        }
+
+        const tradeResult = attemptMerchantTradeWithInventory({
+            currentState: state,
+            merchant,
+            merchantState,
+            now,
+            inventoryItems: [targetItem],
+            consumeMatchedItemsFn: (consumeContext) => {
+                const selectedItems = Array.isArray(consumeContext?.selectedItems) ? consumeContext.selectedItems : [];
+                if (selectedItems.length !== 1 || selectedItems[0]?.id !== transportItemId) {
+                    return false;
+                }
+
+                return consumeTransportItemsStrictByIds([transportItemId]);
+            },
+            applyProgressionFn: applyProgression,
+            progressionReason: "merchant_purchase"
+        });
+
+        return applyTradeResult(merchantId, sourceElement, tradeResult);
     }
 
     function isTradeMotionLocked() {
@@ -149,6 +274,7 @@ export function createShopTradeController(options = {}) {
 
     return {
         attemptMerchantPurchase,
+        attemptMerchantPurchaseByTransportItem,
         isTradeMotionLocked
     };
 }

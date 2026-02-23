@@ -48,6 +48,19 @@
     pointer-events: none;
 }
 
+.global-transport-mode-layer #globalTransportBasketCanvas {
+    pointer-events: none;
+}
+
+.global-transport-mode-layer #globalTransportNetCanvas {
+    pointer-events: none;
+}
+
+.global-transport-mode-layer.transport-mode-basket-interactive #globalTransportBasketCanvas {
+    pointer-events: auto;
+    touch-action: none;
+}
+
 .transport-mode-full-canvas {
     width: 100%;
     height: 100%;

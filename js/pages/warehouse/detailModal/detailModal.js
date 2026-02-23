@@ -8,7 +8,7 @@ import { renderSingleDetail } from "./singleDetailModal.js";
 import { pickRandomStackItemId, renderStackDetail, stopStackDetail } from "./stackDetailModal.js";
 import { replaceBasketItem } from "../../../modules/basketPhysics/index.js";
 import { bindEventOnce } from "../../../utils/domEvents.js";
-import { TRANSPORT_WAREHOUSE_CHANGED_EVENT } from "../../../global/transportMode/transportModeConstants.js";
+import { TRANSPORT_WAREHOUSE_CHANGED_EVENT } from "../../../global/transportMode/index.js";
 
 // 이 섹션은 창고 상세 모달 내부 상태와 외부 콜백 컨텍스트를 관리한다.
 let selectedWarehouseItemId = null;
