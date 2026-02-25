@@ -2,8 +2,8 @@
 // 핵심 책임: 발견 타입 집계와 잠금/해금 표시 규칙을 적용해 그리드 항목을 생성한다.
 // 연동 범위: 도감 모달에서 마리모 수집 진행도를 시각화하는 뷰 모듈이다.
 
-import { getMarimoType } from "../../utils/marimoData.js";
-import { renderMarimoVisual } from "../marimoRender.js";
+import { getMarimoType } from "../../../utils/marimoData.js";
+import { renderMarimoVisual } from "../../../ui/marimoRender.js";
 
 const KNOWN_MARIMO_TYPES = [
     { type: "normal", label: "Basic Marimo" },

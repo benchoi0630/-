@@ -2,10 +2,11 @@
 // 핵심 책임: forward/rollback 처리, 알림 메시지 누적, 상태 정규화를 단일 흐름으로 관리한다.
 // 연동 범위: 게임 기능 해금/비활성의 기준이 되는 progression 엔진을 제공한다.
 
-import { progressionTrackDefs } from "./progrssionTracks.js";
+import { progressionTrackDefs } from "./progressionTracks.js";
 
 // 이 파일은 트랙별 단계 정의를 기준으로 진행과 회귀를 관리한다.
 const DEFAULT_LEVEL = 0;
+const sortedLevelsCache = new Map();
 
 function getTrackIds() {
     return Object.keys(progressionTrackDefs);
@@ -155,13 +156,20 @@ function normalizeProgressionState(currentState) {
 }
 
 function getSortedLevels(track) {
+    const cached = sortedLevelsCache.get(track);
+    if (cached) {
+        return cached;
+    }
+
     const levels = Array.isArray(progressionTrackDefs[track]?.levels) ? progressionTrackDefs[track].levels : [];
 
     for (let i = 0; i < levels.length; i += 1) {
         assertLevelShape(track, levels[i], i);
     }
 
-    return [...levels].sort((a, b) => a.level - b.level);
+    const sortedLevels = [...levels].sort((a, b) => a.level - b.level);
+    sortedLevelsCache.set(track, sortedLevels);
+    return sortedLevels;
 }
 
 function appendNotifications(currentState, messages) {

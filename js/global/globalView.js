@@ -3,6 +3,7 @@
 // 연동 범위: 다른 모듈이 공통 HUD 상태를 갱신할 때 사용하는 뷰 계층 API다.
 
 import { renderUpgradeModalState } from "../upgrades/upgradeUiActions.js";
+import { renderUpgradeModalInfo } from "./upgradeButton/upgradeModalInfo.js";
 
 // 이 변수는 전역 메시지 자동 삭제 타이머를 저장한다.
 let clearGlobalMessageTimerId = null;
@@ -34,11 +35,14 @@ export function getGlobalElements() {
         dialogueHistoryList: document.getElementById("dialogueHistoryList"),
         hardwareUpgradeModal: document.getElementById("hardwareUpgradeModal"),
         hardwareUpgradeList: document.getElementById("hardwareUpgradeList"),
+        hardwareUpgradeInfo: document.getElementById("hardwareUpgradeInfo"),
         hardwareUpgradeMessage: document.getElementById("hardwareUpgradeMessage"),
         softwareUpgradeModal: document.getElementById("softwareUpgradeModal"),
         softwareUpgradeList: document.getElementById("softwareUpgradeList"),
+        softwareUpgradeInfo: document.getElementById("softwareUpgradeInfo"),
         softwareUpgradeMessage: document.getElementById("softwareUpgradeMessage"),
-        facilityUpgradeModal: document.getElementById("facilityUpgradeModal")
+        facilityUpgradeModal: document.getElementById("facilityUpgradeModal"),
+        facilityUpgradeInfo: document.getElementById("facilityUpgradeInfo")
     };
 }
 
@@ -85,6 +89,7 @@ export function renderGlobalHeader(currentState) {
 
     ensureGlobalHeaderMessage(elements);
     renderUpgradeModalState(elements, currentState);
+    renderUpgradeModalInfo(elements);
 }
 
 // 이 함수는 전역 헤더에 한 줄 메시지를 표시하고 잠시 뒤 지운다.

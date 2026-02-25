@@ -1,10 +1,9 @@
 // 파일 역할: 운송모드 런타임 상태를 전역 싱글톤으로 관리한다.
-// 핵심 책임: 모드 on/off, 접힘 상태, 임시 뜰채/운송 바구니 아이템 배열을 안전하게 보관한다.
+// 핵심 책임: 모드 on/off, 임시 뜰채/운송 바구니 아이템 배열을 안전하게 보관한다.
 // 연동 범위: transportMode controller/view/physics가 공통으로 참조한다.
 
 const runtimeState = {
     enabled: false,
-    collapsed: false,
     pendingItems: [],
     transportItems: [],
     sourceItems: [],
@@ -28,7 +27,6 @@ function toSafeItems(items) {
 export function getTransportModeRuntimeState() {
     return {
         enabled: runtimeState.enabled,
-        collapsed: runtimeState.collapsed,
         pendingItems: [...runtimeState.pendingItems],
         transportItems: [...runtimeState.transportItems],
         sourceItems: [...runtimeState.sourceItems],
@@ -46,10 +44,6 @@ export function isTransportModeEnabled() {
 
 export function setTransportModeEnabled(nextEnabled) {
     runtimeState.enabled = nextEnabled === true;
-}
-
-export function setTransportModeCollapsed(nextCollapsed) {
-    runtimeState.collapsed = nextCollapsed === true;
 }
 
 export function setTransportModePendingItems(items) {

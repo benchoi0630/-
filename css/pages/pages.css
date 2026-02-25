@@ -98,6 +98,10 @@
     opacity: 0.72;
 }
 
+.warehouse-item.warehouse-item-pending-silhouette .marimo-stack-count-badge {
+    opacity: 0.68;
+}
+
 .warehouse-item-volume {
     font-size: calc(14px * var(--ui-scale));
 }

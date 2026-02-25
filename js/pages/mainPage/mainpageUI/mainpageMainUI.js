@@ -5,7 +5,7 @@
 import { state } from "../../../state.js";
 import { hasMainMarimo } from "../../../utils/marimoData.js";
 import { clearMarimoVisual, renderMarimoVisual } from "../../../ui/marimoRender.js";
-import { createModalBase } from "../../../ui/modalBase.js";
+import { createModalBase } from "../../../ui/modal/modalBase.js";
 import { createMainPageBackgroundUI } from "./mainPageBackgroundUI.js";
 import { createMainPageRollAnimator } from "./mainPageRollAnimator.js";
 import { getGrowthSnapshot } from "../mainpageLogic/growthEngine.js";
@@ -23,6 +23,7 @@ const SPLIT_COMPLETE_MODAL_DURATION_MS = 1100;
 
 function queryMainElements() {
     return {
+        mainPage: document.getElementById("mainPage"),
         marimoArea: document.querySelector("#mainPage .marimo-area"),
         marimo: document.getElementById("marimo"),
         diameterText: document.getElementById("diameter-text"),
@@ -32,6 +33,7 @@ function queryMainElements() {
         splitVolumeText: document.getElementById("splitVolumeText"),
         splitUpBtn: document.getElementById("splitUpBtn"),
         splitDownBtn: document.getElementById("splitDownBtn"),
+        marimoFixToggleBtn: document.getElementById("marimoFixToggleBtn"),
         sendToWarehouseBtn: document.getElementById("sendToWarehouseBtn"),
         splitCompleteModal: document.getElementById("splitCompleteModal"),
         mainMessage: document.getElementById("mainMessage"),
@@ -106,6 +108,9 @@ export function createMainPageMainUI(options = {}) {
             const featureLevel = state.progression?.feature;
             return Number.isFinite(featureLevel) && featureLevel >= 1;
         };
+    const onManualRollingDistanceAbs = typeof options.onManualRollingDistanceAbs === "function"
+        ? options.onManualRollingDistanceAbs
+        : () => {};
 
     let mainElementsCache = null;
     const backgroundUI = createMainPageBackgroundUI();
@@ -179,7 +184,8 @@ export function createMainPageMainUI(options = {}) {
 
     const rollAnimator = createMainPageRollAnimator({
         setMarimoRollAngle,
-        getMarimoRadiusPx
+        getMarimoRadiusPx,
+        onManualRollingDistanceAbs
     });
 
     function setMainMessage(message) {
@@ -301,6 +307,17 @@ export function createMainPageMainUI(options = {}) {
         }
     }
 
+    function renderMarimoFixToggle(elements) {
+        if (!elements.marimoFixToggleBtn) {
+            return;
+        }
+
+        const marimoFixed = state.growth?.marimoFixed === true;
+        elements.marimoFixToggleBtn.textContent = marimoFixed ? "마리모 고정: ON" : "마리모 고정: OFF";
+        elements.marimoFixToggleBtn.classList.toggle("is-fixed", marimoFixed);
+        elements.marimoFixToggleBtn.setAttribute("aria-pressed", marimoFixed ? "true" : "false");
+    }
+
     function renderMainPage() {
         const elements = getMainElements();
         if (!elements.marimo) {
@@ -323,6 +340,7 @@ export function createMainPageMainUI(options = {}) {
             rollAnimator.clearRollingVisualState();
             renderNutritionBar(elements, false);
             renderSplitControl(elements);
+            renderMarimoFixToggle(elements);
             return;
         }
 
@@ -347,6 +365,7 @@ export function createMainPageMainUI(options = {}) {
 
         renderNutritionBar(elements, true);
         renderSplitControl(elements);
+        renderMarimoFixToggle(elements);
     }
 
     return {
@@ -354,7 +373,9 @@ export function createMainPageMainUI(options = {}) {
         setMainMessage,
         showSplitCompleteModal,
         triggerFertilizerFaceExpression,
+        startManualRolling: rollAnimator.startManualRolling,
         applyRollingVisual: rollAnimator.applyRollingVisual,
+        endManualRolling: rollAnimator.endManualRolling,
         resetRollingVisual: rollAnimator.resetRollingVisual,
         renderMainPage
     };

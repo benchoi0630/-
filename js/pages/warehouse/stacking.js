@@ -115,13 +115,21 @@ function renderBySimilarVolumeMode(options) {
             type: stack.type
         };
 
-        const card = options.createWarehouseCard(`Vol: ~${stack.stackRepresentativeVolume.toFixed(2)}`, stack.count, () => {
+        const card = options.createWarehouseCard(`Vol: ~${stack.stackRepresentativeVolume.toFixed(2)}`, stack.count, (clickedCard) => {
             options.onStackedItemClick({
                 stackKey: stack.stackKey,
                 stackAllItemIds: stack.stackAllItemIds,
-                stackRepresentativeVolume: stack.stackRepresentativeVolume
+                stackRepresentativeVolume: stack.stackRepresentativeVolume,
+                stackType: stack.type,
+                cardElement: clickedCard
             });
         }, sampleMarimo);
+        card.dataset.warehouseCardKind = "stack-item";
+        card.dataset.warehouseStackKey = stack.stackKey;
+        card.dataset.warehouseStackItemIds = JSON.stringify(stack.stackAllItemIds);
+        card.dataset.warehouseStackRepresentativeVolume = String(stack.stackRepresentativeVolume);
+        card.dataset.warehouseStackType = stack.type;
+        card.dataset.warehouseStackLabelBase = `Vol: ~${stack.stackRepresentativeVolume.toFixed(2)}`;
         options.elements.warehouseGrid.appendChild(card);
     }
 }
@@ -138,13 +146,21 @@ function renderByTypeMode(options) {
             type: stack.type
         };
 
-        const card = options.createWarehouseCard(`Type: ${stack.type}`, stack.count, () => {
+        const card = options.createWarehouseCard(`Type: ${stack.type}`, stack.count, (clickedCard) => {
             options.onStackedItemClick({
                 stackKey: stack.stackKey,
                 stackAllItemIds: stack.stackAllItemIds,
-                stackRepresentativeVolume: stack.stackRepresentativeVolume
+                stackRepresentativeVolume: stack.stackRepresentativeVolume,
+                stackType: stack.type,
+                cardElement: clickedCard
             });
         }, sampleMarimo);
+        card.dataset.warehouseCardKind = "stack-item";
+        card.dataset.warehouseStackKey = stack.stackKey;
+        card.dataset.warehouseStackItemIds = JSON.stringify(stack.stackAllItemIds);
+        card.dataset.warehouseStackRepresentativeVolume = String(stack.stackRepresentativeVolume);
+        card.dataset.warehouseStackType = stack.type;
+        card.dataset.warehouseStackLabelBase = `Type: ${stack.type}`;
         options.elements.warehouseGrid.appendChild(card);
     }
 }

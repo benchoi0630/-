@@ -18,11 +18,43 @@
     font-size: calc(16px * var(--ui-scale));
 }
 
-.floating-warehouse-btn {
+.floating-main-actions {
     position: absolute;
     top: calc(12px * var(--ui-scale));
     right: calc(12px * var(--ui-scale));
     z-index: 9;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: calc(8px * var(--ui-scale));
+    pointer-events: none;
+}
+
+.floating-main-actions > button {
+    pointer-events: auto;
+}
+
+.marimo-fix-toggle-btn {
+    min-height: calc(40px * var(--ui-scale));
+    padding: calc(8px * var(--ui-scale)) calc(12px * var(--ui-scale));
+    border-radius: 999px;
+    border: 1px solid rgba(226, 248, 248, 0.34);
+    background: rgba(16, 31, 35, 0.78);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+    color: var(--app-text-color);
+    font-size: calc(13px * var(--ui-scale));
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.marimo-fix-toggle-btn.is-fixed {
+    border-color: rgba(166, 242, 204, 0.78);
+    background: rgba(35, 99, 85, 0.85);
+}
+
+.floating-warehouse-btn {
+    position: relative;
     width: calc(120px * var(--ui-scale));
     height: calc(120px * var(--ui-scale));
     border-radius: 0;
@@ -220,6 +252,11 @@
     min-width: calc(200px * var(--ui-scale));
     border-radius: 999px;
     font-size: 300%;
+}
+
+body.transport-mode-enabled #mainPage #splitBtn,
+body.transport-mode-enabled #mainPage #splitControl {
+    display: none !important;
 }
 
 .split-control {

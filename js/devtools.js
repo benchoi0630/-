@@ -4,7 +4,7 @@
 
 import { state, saveState, resetState } from "./state.js";
 import { applyProgression, setProgression } from "./progression/progressionLogic.js";
-import { progressionTrackDefs } from "./progression/progrssionTracks.js";
+import { progressionTrackDefs } from "./progression/progressionTracks.js";
 import { merchantList, createDefaultMerchantsState } from "./merchants/merchantsIndex.js";
 import { describeOfferSpec, resolveMerchantOfferSpec } from "./merchants/merchantOffer.js";
 import { getAllUpgradeDefinitions } from "./upgrades/upgradeDefinitions.js";

@@ -5,7 +5,8 @@
 import { state, saveState } from "../../../state.js";
 import { applyProgression } from "../../../progression/progressionLogic.js";
 import { createMarimoRecordId, getMarimoType, hasMainMarimo } from "../../../utils/marimoData.js";
-import { applyRollingGrowth, useFertilizer } from "./growthEngine.js";
+import { applyRollingGrowth } from "./growthEngine.js";
+import { useFertilizer } from "./fertilizerLogic.js";
 import { getSplitAmount, isSendToWarehouseUnlocked, syncMainMarimoDerivedState, volumeToDiameter } from "./runtime/mainPageStateLogic.js";
 
 const SWIPE_TO_ROLL_DISTANCE_GAIN = 1;
@@ -16,7 +17,7 @@ function runContextRender(context, key) {
     }
 }
 
-export function calculateRollingSurfaceDistance(dx, dy) {
+export function calculateRollingSurfaceDistance(dx, dy, options = {}) {
     const safeDx = Number.isFinite(dx) ? dx : 0;
     const safeDy = Number.isFinite(dy) ? dy : 0;
     const dragDistance = Math.sqrt((safeDx * safeDx) + (safeDy * safeDy));
@@ -25,6 +26,31 @@ export function calculateRollingSurfaceDistance(dx, dy) {
             signedDistance: 0,
             distanceAbs: 0
         };
+    }
+
+    const centerX = Number.isFinite(options?.centerX) ? options.centerX : null;
+    const centerY = Number.isFinite(options?.centerY) ? options.centerY : null;
+    const pointX = Number.isFinite(options?.pointX) ? options.pointX : null;
+    const pointY = Number.isFinite(options?.pointY) ? options.pointY : null;
+
+    if (
+        Number.isFinite(centerX) && Number.isFinite(centerY)
+        && Number.isFinite(pointX) && Number.isFinite(pointY)
+    ) {
+        const radialX = pointX - centerX;
+        const radialY = pointY - centerY;
+        const radialLength = Math.sqrt((radialX * radialX) + (radialY * radialY));
+
+        if (radialLength > 0) {
+            // 중심점 기준 반지름 벡터를 시계방향 90도 회전한 접선 방향 성분만 굴림 거리로 사용한다.
+            const tangentX = -radialY / radialLength;
+            const tangentY = radialX / radialLength;
+            const signedDistance = (safeDx * tangentX + safeDy * tangentY) * SWIPE_TO_ROLL_DISTANCE_GAIN;
+            return {
+                signedDistance,
+                distanceAbs: Math.abs(signedDistance)
+            };
+        }
     }
 
     const directionBase = Math.abs(safeDx) >= Math.abs(safeDy) ? safeDx : safeDy;
@@ -45,16 +71,49 @@ export function handleMainMarimoClick(options = {}) {
         return;
     }
 
-    useFertilizer(state);
+    const fertilizerResult = useFertilizer(state);
+
+    if (fertilizerResult.blocked) {
+        mainPageUI?.setMainMessage("Fertilizer is temporarily disabled.");
+    }
+
     saveState();
 
-    if (typeof mainPageUI?.triggerFertilizerFaceExpression === "function") {
+    if (fertilizerResult.applied && typeof mainPageUI?.triggerFertilizerFaceExpression === "function") {
         mainPageUI.triggerFertilizerFaceExpression();
     }
 
     if (typeof renderMainPage === "function") {
         renderMainPage();
     }
+}
+
+export function handleToggleMarimoFixed(options = {}) {
+    const mainPageUI = options.mainPageUI;
+    const renderMainPage = options.renderMainPage;
+
+    if (!state.growth || typeof state.growth !== "object") {
+        state.growth = {
+            feeding: false,
+            capVolume: 0,
+            accumulatedNutrition: 0,
+            marimoFixed: false
+        };
+    }
+
+    state.growth.marimoFixed = state.growth.marimoFixed !== true;
+    const marimoFixed = state.growth.marimoFixed === true;
+
+    saveState();
+    if (typeof mainPageUI?.setMainMessage === "function") {
+        mainPageUI.setMainMessage(marimoFixed ? "해류 자동 성장이 정지되었습니다." : "해류 자동 성장이 다시 활성화되었습니다.");
+    }
+
+    if (typeof renderMainPage === "function") {
+        renderMainPage();
+    }
+
+    return marimoFixed;
 }
 
 export function handleMainMarimoRolling(options = {}) {

@@ -3,14 +3,15 @@
 // 연동 범위: mainPage 액션 로직이 이 엔진을 호출해 성장 규칙을 적용한다.
 
 import { hasMainMarimo } from "../../../utils/marimoData.js";
-import { getAlgaeGrowthBonusRatio, getFertilizerCapVolume, getMaxMarimoVolume, getWaterCurrentRollingDistancePerSecond } from "../../../upgrades/upgradeSelectors.js";
+import { getAlgaeGrowthBonusRatio, getMaxMarimoVolume, getWaterCurrentRollingDistancePerSecond } from "../../../upgrades/upgradeSelectors.js";
+import { FERTILIZER_CHARGE_DISTANCE, MAX_ACCUMULATED_NUTRITION_DISTANCE, ensureGrowthState } from "./fertilizerLogic.js";
 
 export const ROLL_GAIN = 1;
-export const MAX_ACCUMULATED_NUTRITION_DISTANCE = 500;
-export const FERTILIZER_CHARGE_DISTANCE = 100;
 export const AUTO_GROWTH_VOLUME_PER_DISTANCE = 0.0012;
 const SOFT_CAP_BRAKE_STRENGTH = 10;
 const SOFT_CAP_INTEGRATION_STEPS = 24;
+
+export { FERTILIZER_CHARGE_DISTANCE, MAX_ACCUMULATED_NUTRITION_DISTANCE } from "./fertilizerLogic.js";
 
 function toSafeDistance(value) {
     return Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -32,29 +33,6 @@ function ensureEnvironmentState(currentState) {
     environment.waterCurrent = toSafeDistance(getWaterCurrentRollingDistancePerSecond(currentState));
     environment.algae = toSafeDistance(getAlgaeGrowthBonusRatio(currentState));
     return environment;
-}
-
-function ensureGrowthState(currentState) {
-    if (!currentState.growth || typeof currentState.growth !== "object") {
-        currentState.growth = {
-            feeding: false,
-            capVolume: 0,
-            accumulatedNutrition: 0
-        };
-    }
-
-    const growth = currentState.growth;
-    growth.capVolume = Number.isFinite(growth.capVolume) ? Math.max(0, growth.capVolume) : 0;
-    const legacyConsumedRollingDistance = Number.isFinite(growth.consumedRollingDistance)
-        ? Math.max(0, growth.consumedRollingDistance)
-        : 0;
-    growth.accumulatedNutrition = Number.isFinite(growth.accumulatedNutrition)
-        ? Math.max(0, growth.accumulatedNutrition)
-        : legacyConsumedRollingDistance;
-    growth.accumulatedNutrition = Math.min(MAX_ACCUMULATED_NUTRITION_DISTANCE, growth.accumulatedNutrition);
-    growth.feeding = growth.accumulatedNutrition > 0;
-
-    return growth;
 }
 
 function getSoftCapGrowthMultiplier(currentVolume, thresholdVolume) {
@@ -123,35 +101,14 @@ function calculateAutoGrowthVolume(currentState, rollingDelta) {
     return effectiveGrowthDistance * AUTO_GROWTH_VOLUME_PER_DISTANCE;
 }
 
-export function useFertilizer(currentState) {
-    const growth = ensureGrowthState(currentState);
-
-    if (!hasMainMarimo(currentState)) {
-        growth.feeding = false;
-        growth.capVolume = 0;
-        growth.accumulatedNutrition = 0;
-        return {
-            feeding: growth.feeding,
-            capVolume: growth.capVolume,
-            accumulatedNutrition: growth.accumulatedNutrition
-        };
-    }
-
-    growth.feeding = true;
-    growth.capVolume = getFertilizerCapVolume(currentState);
-    growth.accumulatedNutrition = Math.min(MAX_ACCUMULATED_NUTRITION_DISTANCE, growth.accumulatedNutrition + FERTILIZER_CHARGE_DISTANCE);
-    growth.feeding = growth.accumulatedNutrition > 0;
-
-    return {
-        feeding: growth.feeding,
-        capVolume: growth.capVolume,
-        accumulatedNutrition: growth.accumulatedNutrition
-    };
-}
-
 export function calculateAutoRollingSurfaceDistance(currentState, deltaSeconds) {
     const safeDeltaSeconds = toSafeDeltaSeconds(deltaSeconds);
     if (safeDeltaSeconds <= 0) {
+        return 0;
+    }
+
+    const growth = ensureGrowthState(currentState);
+    if (growth.marimoFixed === true) {
         return 0;
     }
 
@@ -178,6 +135,7 @@ export function getGrowthSnapshot(currentState) {
         feeding: growth.feeding,
         capVolume: growth.capVolume,
         accumulatedNutrition: growth.accumulatedNutrition,
+        marimoFixed: growth.marimoFixed === true,
         remainingRollingDistance,
         requiredRollingDistance: FERTILIZER_CHARGE_DISTANCE,
         maxAccumulatedNutrition: MAX_ACCUMULATED_NUTRITION_DISTANCE,

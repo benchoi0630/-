@@ -63,6 +63,11 @@
     line-height: 1.15;
 }
 
+.upgrade-modal-info {
+    text-align: left;
+    min-height: 0;
+}
+
 .setting-modal-layout {
     width: min(420px, calc(var(--app-width) - 24px));
 }

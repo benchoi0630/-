@@ -380,6 +380,90 @@ export function pullBasketItemsTowardClientPoint(options = {}) {
     return movedCount;
 }
 
+export function getBasketItemIdsNearClientPoint(options = {}) {
+    const targetCanvas = normalizeCanvas(options?.canvas);
+    if (!targetCanvas) {
+        return [];
+    }
+
+    const runtime = basketRuntimeByCanvas.get(targetCanvas);
+    if (!runtime || !Array.isArray(runtime.bodies)) {
+        return [];
+    }
+
+    const targetPoint = getRuntimePointFromClient(runtime, options?.clientX, options?.clientY);
+    if (!targetPoint) {
+        return [];
+    }
+
+    const captureRadius = Number.isFinite(options?.captureRadius) ? Math.max(0, options.captureRadius) : 0;
+    const includeDraggingBody = options?.includeDraggingBody === true;
+    const nearbyItemIds = [];
+    const nearbyItemIdSet = new Set();
+
+    for (let i = 0; i < runtime.bodies.length; i += 1) {
+        const body = runtime.bodies[i];
+        const itemId = typeof body?.itemId === "string" ? body.itemId : "";
+        if (!itemId || nearbyItemIdSet.has(itemId)) {
+            continue;
+        }
+
+        if (!includeDraggingBody && body.isPointerDragging === true) {
+            continue;
+        }
+
+        const dx = body.x - targetPoint.x;
+        const dy = body.y - targetPoint.y;
+        const allowedRadius = captureRadius + body.radius;
+        if ((dx * dx) + (dy * dy) > (allowedRadius * allowedRadius)) {
+            continue;
+        }
+
+        nearbyItemIdSet.add(itemId);
+        nearbyItemIds.push(itemId);
+    }
+
+    return nearbyItemIds;
+}
+
+export function placeBasketItemsAtClientPoint(options = {}) {
+    const targetCanvas = normalizeCanvas(options?.canvas);
+    if (!targetCanvas) {
+        return 0;
+    }
+
+    const runtime = basketRuntimeByCanvas.get(targetCanvas);
+    if (!runtime || !Array.isArray(runtime.bodies)) {
+        return 0;
+    }
+
+    const itemIdSet = toItemIdSet(options?.itemIds);
+    if (itemIdSet.size <= 0) {
+        return 0;
+    }
+
+    const targetPoint = getRuntimePointFromClient(runtime, options?.clientX, options?.clientY);
+    if (!targetPoint) {
+        return 0;
+    }
+
+    let movedCount = 0;
+    for (let i = 0; i < runtime.bodies.length; i += 1) {
+        const body = runtime.bodies[i];
+        if (!itemIdSet.has(body?.itemId)) {
+            continue;
+        }
+
+        body.x = clamp(targetPoint.x, WORLD_PADDING + body.radius, runtime.width - WORLD_PADDING - body.radius);
+        body.y = clamp(targetPoint.y, WORLD_PADDING + body.radius, runtime.height - WORLD_PADDING - body.radius);
+        body.vx = 0;
+        body.vy = 0;
+        movedCount += 1;
+    }
+
+    return movedCount;
+}
+
 function ensureBasketAnimationLoop() {
     if (basketAnimationFrameId !== null || basketRuntimeByCanvas.size <= 0) {
         return;

@@ -97,6 +97,24 @@ function invokePointerHook(runtime, hookName, payload) {
     }
 }
 
+function isEmptyDragStartEnabled(runtime) {
+    const pointerHooks = runtime?.pointerHooks;
+    if (!pointerHooks || typeof pointerHooks !== "object") {
+        return false;
+    }
+
+    const flag = pointerHooks.allowEmptyDragStart;
+    if (typeof flag === "function") {
+        try {
+            return flag() === true;
+        } catch {
+            return false;
+        }
+    }
+
+    return flag === true;
+}
+
 export function createBasketPointerInteraction(runtime) {
     const dragState = {
         pointerId: null,
@@ -117,16 +135,20 @@ export function createBasketPointerInteraction(runtime) {
         return dragState.pointerId !== null && event?.pointerId === dragState.pointerId;
     }
 
-    function isActiveBodyValid() {
+    function hasActiveBody() {
+        return Boolean(dragState.body && typeof dragState.body === "object");
+    }
+
+    function isActiveBodyInRuntime() {
         return Boolean(
-            dragState.body
+            hasActiveBody()
             && Array.isArray(runtime?.bodies)
             && runtime.bodies.includes(dragState.body)
         );
     }
 
     function updateDraggedBodyFromEvent(event) {
-        if (!isActivePointer(event) || !isActiveBodyValid()) {
+        if (!isActivePointer(event)) {
             return false;
         }
 
@@ -135,28 +157,37 @@ export function createBasketPointerInteraction(runtime) {
             return false;
         }
 
-        const body = dragState.body;
-        const targetX = clamp(
-            point.x - dragState.offsetX,
-            WORLD_PADDING + body.radius,
-            runtime.width - WORLD_PADDING - body.radius
-        );
-        const targetY = clamp(
-            point.y - dragState.offsetY,
-            WORLD_PADDING + body.radius,
-            runtime.height - WORLD_PADDING - body.radius
-        );
-
         const nowMs = Number.isFinite(event.timeStamp) ? event.timeStamp : getNowMs();
-        const dtMs = Math.max(1, nowMs - dragState.lastTimeMs);
-        const pointerVx = ((targetX - dragState.lastBodyX) / dtMs) * VELOCITY_FRAME_MS;
-        const pointerVy = ((targetY - dragState.lastBodyY) / dtMs) * VELOCITY_FRAME_MS;
+        let targetX = point.x;
+        let targetY = point.y;
 
-        body.x = targetX;
-        body.y = targetY;
-        body.vx = (body.vx * (1 - DRAG_VELOCITY_BLEND)) + (pointerVx * DRAG_VELOCITY_BLEND);
-        body.vy = (body.vy * (1 - DRAG_VELOCITY_BLEND)) + (pointerVy * DRAG_VELOCITY_BLEND);
-        body.angularVelocity *= 0.72;
+        if (hasActiveBody()) {
+            if (!isActiveBodyInRuntime()) {
+                return false;
+            }
+
+            const body = dragState.body;
+            targetX = clamp(
+                point.x - dragState.offsetX,
+                WORLD_PADDING + body.radius,
+                runtime.width - WORLD_PADDING - body.radius
+            );
+            targetY = clamp(
+                point.y - dragState.offsetY,
+                WORLD_PADDING + body.radius,
+                runtime.height - WORLD_PADDING - body.radius
+            );
+
+            const dtMs = Math.max(1, nowMs - dragState.lastTimeMs);
+            const pointerVx = ((targetX - dragState.lastBodyX) / dtMs) * VELOCITY_FRAME_MS;
+            const pointerVy = ((targetY - dragState.lastBodyY) / dtMs) * VELOCITY_FRAME_MS;
+
+            body.x = targetX;
+            body.y = targetY;
+            body.vx = (body.vx * (1 - DRAG_VELOCITY_BLEND)) + (pointerVx * DRAG_VELOCITY_BLEND);
+            body.vy = (body.vy * (1 - DRAG_VELOCITY_BLEND)) + (pointerVy * DRAG_VELOCITY_BLEND);
+            body.angularVelocity *= 0.72;
+        }
 
         dragState.lastBodyX = targetX;
         dragState.lastBodyY = targetY;
@@ -176,7 +207,8 @@ export function createBasketPointerInteraction(runtime) {
             return;
         }
 
-        const hadBody = isActiveBodyValid();
+        const hadBody = hasActiveBody();
+        const bodyStillInRuntime = isActiveBodyInRuntime();
         const itemId = hadBody ? dragState.body.itemId : null;
         const elapsedMs = Math.max(0, getNowMs() - dragState.downTimeMs);
         const point = getCanvasPoint(runtime, event);
@@ -198,6 +230,7 @@ export function createBasketPointerInteraction(runtime) {
         const shouldSelect = Boolean(
             shouldTriggerSelect
             && hadBody
+            && bodyStillInRuntime
             && !dragState.moved
             && elapsedMs <= TAP_MAX_DURATION_MS
             && typeof itemId === "string"
@@ -234,32 +267,32 @@ export function createBasketPointerInteraction(runtime) {
         }
 
         const body = pickBodyAtPoint(runtime, point.x, point.y);
-        if (!body) {
-            return;
-        }
-
-        moveBodyToTop(runtime, body);
-
         const nowMs = Number.isFinite(event.timeStamp) ? event.timeStamp : getNowMs();
         dragState.pointerId = event.pointerId;
-        dragState.body = body;
-        dragState.offsetX = point.x - body.x;
-        dragState.offsetY = point.y - body.y;
+        dragState.body = body || null;
+        dragState.offsetX = body ? point.x - body.x : 0;
+        dragState.offsetY = body ? point.y - body.y : 0;
         dragState.downX = point.x;
         dragState.downY = point.y;
-        dragState.lastBodyX = body.x;
-        dragState.lastBodyY = body.y;
+        dragState.lastBodyX = body ? body.x : point.x;
+        dragState.lastBodyY = body ? body.y : point.y;
         dragState.downTimeMs = nowMs;
         dragState.lastTimeMs = nowMs;
         dragState.moved = false;
-        body.isPointerDragging = true;
-        body.vx = 0;
-        body.vy = 0;
+        if (body) {
+            moveBodyToTop(runtime, body);
+            body.isPointerDragging = true;
+            body.vx = 0;
+            body.vy = 0;
+        } else if (!isEmptyDragStartEnabled(runtime)) {
+            clearDragState(dragState);
+            return;
+        }
 
-        invokePointerHook(runtime, "onDragStart", {
+        const hookResult = invokePointerHook(runtime, "onDragStart", {
             runtime,
             body,
-            itemId: body.itemId,
+            itemId: body?.itemId || null,
             pointerId: event.pointerId,
             moved: false,
             canceled: false,
@@ -268,6 +301,11 @@ export function createBasketPointerInteraction(runtime) {
             clientX: Number.isFinite(event.clientX) ? event.clientX : null,
             clientY: Number.isFinite(event.clientY) ? event.clientY : null
         });
+
+        if (!body && hookResult === false) {
+            clearDragState(dragState);
+            return;
+        }
 
         if (runtime?.canvas && typeof runtime.canvas.setPointerCapture === "function") {
             try {

@@ -3,7 +3,7 @@
 // 연동 범위: warehouse 관련 하위 모듈을 조합하는 오케스트레이션 파일이다.
 
 import { state, saveState } from "../../state.js";
-import { renderMarimoVisual } from "../../ui/marimoRender.js";
+import { renderMarimoStackVisual } from "../../modules/marimoStackVisual.js";
 import { getMarimoVolume } from "../../utils/marimoData.js";
 import { initWarehouseDetailModal, openWarehouseItemDetail, openWarehouseStackDetail } from "./detailModal/detailModal.js";
 import { cycleStackMode, ensureStackModeButton, getCurrentStackMode, renderStackModeButton, renderWarehouseByMode } from "./stacking.js";
@@ -28,6 +28,23 @@ let activeWarehousePhysicsCanvas = null;
 const noStackSweepState = {
     pointerId: null
 };
+const STACK_CARD_CAPTURE_INITIAL_DELAY_MS = 430;
+const STACK_CARD_CAPTURE_MIN_DELAY_MS = 78;
+const STACK_CARD_CAPTURE_ACCELERATION = 0.82;
+const STACK_CARD_CLICK_SUPPRESS_MS = 380;
+const STACK_CARD_SWEEP_ACTIVATE_DISTANCE_SQ = 64;
+const stackCardSweepState = {
+    pointerId: null,
+    activeCard: null,
+    holdTimerId: null,
+    sweepStarted: false,
+    startClientX: 0,
+    startClientY: 0,
+    nextDelayMs: STACK_CARD_CAPTURE_INITIAL_DELAY_MS,
+    lastClientX: 0,
+    lastClientY: 0
+};
+let suppressStackedCardClickUntilMs = 0;
 
 /** 이 함수는 창고 페이지 모듈을 초기화하고 렌더 함수를 반환한다. */
 export function initWarehousePage(options = {}) {
@@ -101,6 +118,10 @@ function handleNoStackItemClick(itemId) {
 
 // 이 함수는 스택 카드 클릭 시 스택 상세 모달을 연다.
 function handleStackedItemClick(stackMeta) {
+    if (Date.now() <= suppressStackedCardClickUntilMs) {
+        return;
+    }
+
     openWarehouseStackDetail(stackMeta);
 }
 
@@ -113,6 +134,7 @@ function bindWarehouseEvents() {
     bindEventOnce(viewToggleBtn, "click", "listenerWarehouseViewToggleBound", handleWarehouseViewToggle);
     bindEventOnce(button, "click", "listenerWarehouseStackModeBound", handleStackModeCycle);
     bindWarehouseNoStackSweepEvents(elements);
+    bindWarehouseStackSweepEvents(elements);
 }
 
 function bindWarehouseNoStackSweepEvents(elements) {
@@ -279,9 +301,390 @@ function finishNoStackSweepCapture(event) {
 
     endTransportModeExternalSweep({
         sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY
     });
     noStackSweepState.pointerId = null;
+}
+
+function clearStackCardSweepHoldTimer() {
+    if (!stackCardSweepState.holdTimerId) {
+        return;
+    }
+
+    clearTimeout(stackCardSweepState.holdTimerId);
+    stackCardSweepState.holdTimerId = null;
+}
+
+function resetStackCardSweepState() {
+    clearStackCardSweepHoldTimer();
+    stackCardSweepState.pointerId = null;
+    stackCardSweepState.activeCard = null;
+    stackCardSweepState.sweepStarted = false;
+    stackCardSweepState.startClientX = 0;
+    stackCardSweepState.startClientY = 0;
+    stackCardSweepState.nextDelayMs = STACK_CARD_CAPTURE_INITIAL_DELAY_MS;
+    stackCardSweepState.lastClientX = 0;
+    stackCardSweepState.lastClientY = 0;
+}
+
+function canUseStackCardSweepCapture() {
+    return warehouseViewMode === "list"
+        && getCurrentStackMode(state) !== "no_stack"
+        && isTransportModeEnabled();
+}
+
+function resolveStackCardFromNode(node) {
+    const card = node?.closest?.(".warehouse-item[data-warehouse-card-kind='stack-item']");
+    return card instanceof HTMLElement ? card : null;
+}
+
+function readStackCardItemIds(card) {
+    if (!(card instanceof HTMLElement)) {
+        return [];
+    }
+
+    const rawItemIds = card.dataset.warehouseStackItemIds;
+    if (typeof rawItemIds !== "string" || rawItemIds.length <= 0) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(rawItemIds);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+
+        const itemIds = [];
+        for (let i = 0; i < parsed.length; i += 1) {
+            const itemId = parsed[i];
+            if (typeof itemId === "string" && itemId.length > 0) {
+                itemIds.push(itemId);
+            }
+        }
+        return itemIds;
+    } catch {
+        return [];
+    }
+}
+
+function readStackCardExtractIndex(card) {
+    if (!(card instanceof HTMLElement)) {
+        return 0;
+    }
+
+    const rawIndex = Number.parseInt(card.dataset.warehouseStackExtractIndex || "0", 10);
+    if (!Number.isFinite(rawIndex)) {
+        return 0;
+    }
+
+    return Math.max(0, rawIndex);
+}
+
+function writeStackCardExtractIndex(card, nextIndex) {
+    if (!(card instanceof HTMLElement)) {
+        return;
+    }
+
+    const safeIndex = Number.isFinite(nextIndex) ? Math.max(0, Math.floor(nextIndex)) : 0;
+    card.dataset.warehouseStackExtractIndex = String(safeIndex);
+}
+
+function getStackCardRemainingCount(card) {
+    const itemIds = readStackCardItemIds(card);
+    const extractedCount = readStackCardExtractIndex(card);
+    return Math.max(0, itemIds.length - extractedCount);
+}
+
+function buildStackCardSampleMarimo(card) {
+    const representativeVolume = Number.parseFloat(card?.dataset?.warehouseStackRepresentativeVolume || "");
+    const stackType = typeof card?.dataset?.warehouseStackType === "string" && card.dataset.warehouseStackType.length > 0
+        ? card.dataset.warehouseStackType
+        : "normal";
+    const stackKey = typeof card?.dataset?.warehouseStackKey === "string" ? card.dataset.warehouseStackKey : "stack-preview";
+
+    return {
+        id: `stack-preview-${stackKey}`,
+        volume: Number.isFinite(representativeVolume) ? representativeVolume : 1,
+        type: stackType
+    };
+}
+
+function updateStackCardVisualState(card) {
+    if (!(card instanceof HTMLElement)) {
+        return;
+    }
+
+    const itemIds = readStackCardItemIds(card);
+    const extractedCount = Math.min(itemIds.length, readStackCardExtractIndex(card));
+    writeStackCardExtractIndex(card, extractedCount);
+    const remainingCount = Math.max(0, itemIds.length - extractedCount);
+
+    const visualNode = card.querySelector(".warehouse-item-visual");
+    if (visualNode instanceof HTMLElement) {
+        renderMarimoStackVisual(visualNode, {
+            marimo: buildStackCardSampleMarimo(card),
+            count: remainingCount > 0 ? remainingCount : 1
+        });
+        visualNode.classList.add("warehouse-item-visual");
+    }
+
+    const labelNode = card.querySelector(".warehouse-item-volume");
+    if (labelNode instanceof HTMLElement) {
+        const baseLabel = card.dataset.warehouseStackLabelBase || labelNode.textContent || "";
+        card.dataset.warehouseStackLabelBase = baseLabel;
+        labelNode.textContent = remainingCount > 0
+            ? `${baseLabel} (${remainingCount})`
+            : `${baseLabel} (empty)`;
+    }
+
+    card.classList.toggle("warehouse-item-pending-silhouette", remainingCount <= 0);
+}
+
+function captureNextStackCardItemBySweep(card, pointerId, clientX, clientY) {
+    if (!(card instanceof HTMLElement) || !Number.isFinite(pointerId)) {
+        return false;
+    }
+
+    const stackItemIds = readStackCardItemIds(card);
+    if (stackItemIds.length <= 0) {
+        updateStackCardVisualState(card);
+        return false;
+    }
+
+    let nextIndex = readStackCardExtractIndex(card);
+    let captured = false;
+    while (nextIndex < stackItemIds.length) {
+        const candidateId = stackItemIds[nextIndex];
+        const newlyCapturedItemIds = moveTransportModeExternalSweep({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            pointerId,
+            itemId: candidateId,
+            clientX,
+            clientY
+        });
+        nextIndex += 1;
+
+        if (newlyCapturedItemIds.includes(candidateId)) {
+            captured = true;
+            break;
+        }
+    }
+
+    writeStackCardExtractIndex(card, nextIndex);
+    updateStackCardVisualState(card);
+    return captured;
+}
+
+function scheduleNextStackCardSweepCapture() {
+    clearStackCardSweepHoldTimer();
+    if (stackCardSweepState.pointerId === null || !(stackCardSweepState.activeCard instanceof HTMLElement)) {
+        return;
+    }
+
+    stackCardSweepState.holdTimerId = setTimeout(() => {
+        stackCardSweepState.holdTimerId = null;
+
+        if (!canUseStackCardSweepCapture() || stackCardSweepState.pointerId === null) {
+            return;
+        }
+
+        const activeCard = stackCardSweepState.activeCard;
+        if (!(activeCard instanceof HTMLElement) || activeCard.isConnected !== true) {
+            return;
+        }
+
+        if (getStackCardRemainingCount(activeCard) <= 0) {
+            return;
+        }
+
+        const didCapture = captureNextStackCardItemBySweep(
+            activeCard,
+            stackCardSweepState.pointerId,
+            stackCardSweepState.lastClientX,
+            stackCardSweepState.lastClientY
+        );
+        if (!didCapture || getStackCardRemainingCount(activeCard) <= 0) {
+            return;
+        }
+
+        stackCardSweepState.nextDelayMs = Math.max(
+            STACK_CARD_CAPTURE_MIN_DELAY_MS,
+            Math.round(stackCardSweepState.nextDelayMs * STACK_CARD_CAPTURE_ACCELERATION)
+        );
+        scheduleNextStackCardSweepCapture();
+    }, stackCardSweepState.nextDelayMs);
+}
+
+function setStackCardSweepActiveCard(card) {
+    if (stackCardSweepState.activeCard === card) {
+        return;
+    }
+
+    clearStackCardSweepHoldTimer();
+    stackCardSweepState.activeCard = card;
+    stackCardSweepState.nextDelayMs = STACK_CARD_CAPTURE_INITIAL_DELAY_MS;
+    if (!(card instanceof HTMLElement) || stackCardSweepState.pointerId === null || stackCardSweepState.sweepStarted !== true) {
+        return;
+    }
+
+    captureNextStackCardItemBySweep(
+        card,
+        stackCardSweepState.pointerId,
+        stackCardSweepState.lastClientX,
+        stackCardSweepState.lastClientY
+    );
+    if (getStackCardRemainingCount(card) > 0) {
+        scheduleNextStackCardSweepCapture();
+    }
+}
+
+function finishStackCardSweepCapture(event) {
+    const pointerId = event?.pointerId;
+    if (!Number.isFinite(pointerId)) {
+        resetStackCardSweepState();
+        return;
+    }
+
+    const elements = getWarehouseElements();
+    if (elements.warehouseGrid && typeof elements.warehouseGrid.releasePointerCapture === "function") {
+        try {
+            elements.warehouseGrid.releasePointerCapture(pointerId);
+        } catch {
+            // pointer capture가 이미 해제된 경우를 무시한다.
+        }
+    }
+
+    if (stackCardSweepState.sweepStarted === true) {
+        endTransportModeExternalSweep({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            pointerId,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+    }
+    resetStackCardSweepState();
+}
+
+function bindWarehouseStackSweepEvents(elements) {
+    const grid = elements.warehouseGrid;
+    if (!grid) {
+        return;
+    }
+
+    bindEventOnce(grid, "pointerdown", "listenerWarehouseStackSweepDownBound", (event) => {
+        if (!canUseStackCardSweepCapture()) {
+            return;
+        }
+
+        if (Number.isFinite(event.button) && event.button !== 0) {
+            return;
+        }
+
+        stackCardSweepState.pointerId = event.pointerId;
+        stackCardSweepState.activeCard = null;
+        stackCardSweepState.sweepStarted = false;
+        stackCardSweepState.startClientX = event.clientX;
+        stackCardSweepState.startClientY = event.clientY;
+        stackCardSweepState.lastClientX = event.clientX;
+        stackCardSweepState.lastClientY = event.clientY;
+        stackCardSweepState.nextDelayMs = STACK_CARD_CAPTURE_INITIAL_DELAY_MS;
+    });
+
+    bindEventOnce(grid, "pointermove", "listenerWarehouseStackSweepMoveBound", (event) => {
+        if (stackCardSweepState.pointerId === null || event.pointerId !== stackCardSweepState.pointerId) {
+            return;
+        }
+
+        if (!canUseStackCardSweepCapture()) {
+            finishStackCardSweepCapture(event);
+            return;
+        }
+
+        stackCardSweepState.lastClientX = event.clientX;
+        stackCardSweepState.lastClientY = event.clientY;
+
+        if (stackCardSweepState.sweepStarted !== true) {
+            const dx = event.clientX - stackCardSweepState.startClientX;
+            const dy = event.clientY - stackCardSweepState.startClientY;
+            if ((dx * dx) + (dy * dy) < STACK_CARD_SWEEP_ACTIVATE_DISTANCE_SQ) {
+                return;
+            }
+
+            const started = startTransportModeExternalSweep({
+                sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+                pointerId: event.pointerId,
+                clientX: event.clientX,
+                clientY: event.clientY
+            });
+            if (!started) {
+                finishStackCardSweepCapture(event);
+                return;
+            }
+            stackCardSweepState.sweepStarted = true;
+            suppressStackedCardClickUntilMs = Date.now() + STACK_CARD_CLICK_SUPPRESS_MS;
+
+            if (typeof grid.setPointerCapture === "function") {
+                try {
+                    grid.setPointerCapture(event.pointerId);
+                } catch {
+                    // pointer capture를 지원하지 않는 경우를 무시한다.
+                }
+            }
+        }
+
+        moveTransportModeExternalSweep({
+            sourceKind: TRANSPORT_SOURCE_KIND_WAREHOUSE_NO_STACK_LIST,
+            pointerId: event.pointerId,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+
+        const targetAtPoint = document.elementFromPoint(event.clientX, event.clientY);
+        const stackCard = resolveStackCardFromNode(targetAtPoint);
+        setStackCardSweepActiveCard(stackCard);
+
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+    });
+
+    bindEventOnce(grid, "pointerup", "listenerWarehouseStackSweepUpBound", (event) => {
+        if (event.pointerId !== stackCardSweepState.pointerId) {
+            return;
+        }
+
+        if (stackCardSweepState.sweepStarted !== true) {
+            finishStackCardSweepCapture(event);
+            return;
+        }
+        finishStackCardSweepCapture(event);
+    });
+
+    bindEventOnce(grid, "pointercancel", "listenerWarehouseStackSweepCancelBound", (event) => {
+        if (event.pointerId !== stackCardSweepState.pointerId) {
+            return;
+        }
+
+        if (stackCardSweepState.sweepStarted !== true) {
+            finishStackCardSweepCapture(event);
+            return;
+        }
+        finishStackCardSweepCapture(event);
+    });
+
+    bindEventOnce(grid, "lostpointercapture", "listenerWarehouseStackSweepLostCaptureBound", (event) => {
+        if (event.pointerId !== stackCardSweepState.pointerId) {
+            return;
+        }
+
+        if (stackCardSweepState.sweepStarted !== true) {
+            finishStackCardSweepCapture(event);
+            return;
+        }
+        finishStackCardSweepCapture(event);
+    });
 }
 
 // 이 함수는 창고 카드 UI 한 개를 생성한다.
@@ -290,8 +693,11 @@ function createWarehouseCard(labelText, count, onClick, visualMarimo) {
     card.className = "warehouse-item";
 
     const marimoVisual = document.createElement("div");
-    marimoVisual.className = "marimo";
-    renderMarimoVisual(marimoVisual, { marimo: visualMarimo, showFace: true });
+    renderMarimoStackVisual(marimoVisual, {
+        marimo: visualMarimo,
+        count
+    });
+    marimoVisual.classList.add("warehouse-item-visual");
 
     const label = document.createElement("div");
     label.className = "warehouse-item-volume";
@@ -300,21 +706,16 @@ function createWarehouseCard(labelText, count, onClick, visualMarimo) {
     card.appendChild(marimoVisual);
     card.appendChild(label);
 
-    if (Number.isFinite(count)) {
-        const countBadge = document.createElement("div");
-        countBadge.className = "warehouse-item-volume";
-        countBadge.textContent = `x${count}`;
-        card.appendChild(countBadge);
-    }
-
     if (typeof onClick === "function") {
         card.style.cursor = "pointer";
         card.tabIndex = 0;
-        card.addEventListener("click", onClick);
+        card.addEventListener("click", () => {
+            onClick(card);
+        });
         card.addEventListener("keydown", (event) => {
             if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onClick();
+                onClick(card);
             }
         });
     }

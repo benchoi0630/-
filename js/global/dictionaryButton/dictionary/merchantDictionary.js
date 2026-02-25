@@ -2,22 +2,22 @@
 // 핵심 책임: 상인 이미지 폴백 로딩과 잠금 처리, 이름 매핑을 함께 제공한다.
 // 연동 범위: 상인 해금 진척을 도감 모달에서 일관된 카드 형식으로 표시한다.
 
-import { merchantList } from "../../merchants/merchantsIndex.js";
+import { merchantList } from "../../../merchants/merchantsIndex.js";
 
 const merchantImageCandidates = {
     merchant1: [
-        new URL("../assets/merchants/merchant 1.1.png", import.meta.url).href,
-        new URL("../assets/merchants/merchant1.png", import.meta.url).href
+        new URL("../../../ui/assets/merchants/merchant 1.1.png", import.meta.url).href,
+        new URL("../../../ui/assets/merchants/merchant1.png", import.meta.url).href
     ],
     merchant2: [
-        new URL("../assets/merchants/merchant 2.1.png", import.meta.url).href,
-        new URL("../assets/merchants/merchant2.png", import.meta.url).href
+        new URL("../../../ui/assets/merchants/merchant 2.1.png", import.meta.url).href,
+        new URL("../../../ui/assets/merchants/merchant2.png", import.meta.url).href
     ],
     merchant3: [
-        new URL("../assets/merchants/merchant 3.1.webp", import.meta.url).href
+        new URL("../../../ui/assets/merchants/merchant 3.1.webp", import.meta.url).href
     ],
     merchant4: [
-        new URL("../assets/merchants/merchant 4.1.jpeg", import.meta.url).href
+        new URL("../../../ui/assets/merchants/merchant 4.1.jpeg", import.meta.url).href
     ]
 };
 

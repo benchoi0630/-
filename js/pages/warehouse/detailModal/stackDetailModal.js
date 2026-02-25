@@ -45,9 +45,9 @@ export function renderStackDetail(options) {
         detailSendToMainBtn.classList.add("hidden");
     }
 
-    const infoLine = document.createElement("div");
-    infoLine.textContent = `Stack count: ${stackItems.length}`;
-    detailBody.appendChild(infoLine);
+    const countLine = document.createElement("div");
+    updateStackCountLine(countLine, stackItems.length);
+    detailBody.appendChild(countLine);
 
     const canvasConfig = getBasketCanvasConfig();
     const canvas = document.createElement("canvas");
@@ -63,7 +63,8 @@ export function renderStackDetail(options) {
             stackRepresentativeVolume: stackMeta?.stackRepresentativeVolume
         },
         onSelectItem,
-        canvas
+        canvas,
+        countLine
     };
 
     startBasketAnimation({
@@ -91,6 +92,26 @@ export function renderStackDetail(options) {
         maxRenderCount: 50,
         allowEmpty: true
     });
+}
+
+/** 이 함수는 열려 있는 스택 상세 모달의 count 라벨만 갱신한다. */
+export function refreshActiveStackDetailCount() {
+    if (!activeStackRenderContext) {
+        return false;
+    }
+
+    const countLine = activeStackRenderContext.countLine;
+    if (!(countLine instanceof HTMLElement)) {
+        return false;
+    }
+
+    if (!activeStackRenderContext.detailBody || activeStackRenderContext.detailBody.isConnected !== true) {
+        return false;
+    }
+
+    const count = getStackItemIds(activeStackRenderContext.stackMeta?.stackAllItemIds).length;
+    updateStackCountLine(countLine, count);
+    return true;
 }
 
 /** 이 함수는 현재 스택에서 랜덤 아이템 아이디를 반환한다. */
@@ -198,6 +219,14 @@ function getBasketCanvasConfig() {
         height,
         dpr
     };
+}
+
+function updateStackCountLine(countLine, count) {
+    if (!(countLine instanceof HTMLElement)) {
+        return;
+    }
+
+    countLine.textContent = `Stack count: ${count}`;
 }
 
 // 이 함수는 현재 창고에 존재하는 스택 아이디 목록만 필터링해 반환한다.

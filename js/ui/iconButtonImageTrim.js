@@ -20,6 +20,8 @@ const SPRITE_REGION_HINTS = {
 
 const trimResultCache = new Map();
 const processedSrcByImage = new WeakMap();
+const pendingTrimLoadByImage = new WeakMap();
+let trimMutationObserver = null;
 
 function isImageNode(node) {
     return node instanceof HTMLImageElement;
@@ -37,6 +39,18 @@ function normalizeSourceKey(rawSource) {
     }
 }
 
+function decodeFileNameSafe(rawName) {
+    if (typeof rawName !== "string" || rawName.length <= 0) {
+        return "";
+    }
+
+    try {
+        return decodeURIComponent(rawName);
+    } catch {
+        return rawName;
+    }
+}
+
 function getFileNameFromSource(rawSource) {
     const sourceKey = normalizeSourceKey(rawSource);
     if (!sourceKey) {
@@ -46,11 +60,11 @@ function getFileNameFromSource(rawSource) {
     try {
         const parsed = new URL(sourceKey, window.location.href);
         const segments = parsed.pathname.split("/");
-        return decodeURIComponent(segments[segments.length - 1] || "");
+        return decodeFileNameSafe(segments[segments.length - 1] || "");
     } catch {
         const clean = sourceKey.split("?")[0].split("#")[0];
         const segments = clean.split("/");
-        return decodeURIComponent(segments[segments.length - 1] || "");
+        return decodeFileNameSafe(segments[segments.length - 1] || "");
     }
 }
 
@@ -91,6 +105,21 @@ function getCanvasContext(width, height) {
     canvas.height = height;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     return { canvas, context };
+}
+
+function readSourceImageData(sourceImage, width, height) {
+    const source = getCanvasContext(width, height);
+    if (!source.context) {
+        return null;
+    }
+
+    try {
+        source.context.drawImage(sourceImage, 0, 0, width, height);
+        const sourceImageData = source.context.getImageData(0, 0, width, height);
+        return { source, sourceImageData };
+    } catch {
+        return null;
+    }
 }
 
 function getTrimBounds(imageData, width, height) {
@@ -158,7 +187,7 @@ function getHintedRegionBounds(imageData, width, height, sourceKey) {
         return null;
     }
 
-    const hint = SPRITE_REGION_HINTS[fileName];
+    const hint = SPRITE_REGION_HINTS[fileName.toLowerCase()];
     if (!hint) {
         return null;
     }
@@ -193,13 +222,12 @@ function trimImageSourceToDataUrl(sourceImage, sourceKey = "") {
         return null;
     }
 
-    const source = getCanvasContext(width, height);
-    if (!source.context) {
+    const sourceData = readSourceImageData(sourceImage, width, height);
+    if (!sourceData) {
         return null;
     }
+    const { source, sourceImageData } = sourceData;
 
-    source.context.drawImage(sourceImage, 0, 0, width, height);
-    const sourceImageData = source.context.getImageData(0, 0, width, height);
     clearLowAlphaPixels(sourceImageData);
     source.context.putImageData(sourceImageData, 0, 0);
     const hintedBounds = getHintedRegionBounds(sourceImageData, width, height, sourceKey);
@@ -245,13 +273,12 @@ export function extractTrimmedOpaqueMaskFromImage(sourceImage) {
         return null;
     }
 
-    const source = getCanvasContext(width, height);
-    if (!source.context) {
+    const sourceData = readSourceImageData(sourceImage, width, height);
+    if (!sourceData) {
         return null;
     }
+    const { sourceImageData } = sourceData;
 
-    source.context.drawImage(sourceImage, 0, 0, width, height);
-    const sourceImageData = source.context.getImageData(0, 0, width, height);
     clearLowAlphaPixels(sourceImageData);
     const bounds = getTrimBounds(sourceImageData, width, height);
     if (!bounds) {
@@ -292,13 +319,40 @@ function cacheTrimmedDataUrl(src, dataUrl) {
 
 function readTrimmedDataUrl(src) {
     if (typeof src !== "string" || src.length <= 0) {
-        return null;
+        return undefined;
     }
     if (!trimResultCache.has(src)) {
-        return null;
+        return undefined;
     }
     const cached = trimResultCache.get(src);
     return cached || null;
+}
+
+function clearPendingTrimLoadListener(image) {
+    const pending = pendingTrimLoadByImage.get(image);
+    if (!pending) {
+        return;
+    }
+
+    image.removeEventListener("load", pending.listener);
+    pendingTrimLoadByImage.delete(image);
+}
+
+function queueTrimAfterLoad(image, sourceKey, callback) {
+    const pending = pendingTrimLoadByImage.get(image);
+    if (pending && pending.sourceKey === sourceKey) {
+        return;
+    }
+
+    clearPendingTrimLoadListener(image);
+
+    const listener = () => {
+        pendingTrimLoadByImage.delete(image);
+        callback();
+    };
+
+    pendingTrimLoadByImage.set(image, { sourceKey, listener });
+    image.addEventListener("load", listener, { once: true });
 }
 
 function applyTrimToImage(image) {
@@ -318,13 +372,11 @@ function applyTrimToImage(image) {
         }
 
         const cached = readTrimmedDataUrl(originalSrcKey);
-        if (cached) {
+        if (cached !== undefined) {
             processedSrcByImage.set(image, originalSrcKey);
-            image.src = cached;
-            return;
-        }
-        if (cached === null && trimResultCache.has(originalSrcKey)) {
-            processedSrcByImage.set(image, originalSrcKey);
+            if (cached) {
+                image.src = cached;
+            }
             return;
         }
 
@@ -343,15 +395,25 @@ function applyTrimToImage(image) {
     };
 
     if (image.complete && image.naturalWidth > 0) {
+        clearPendingTrimLoadListener(image);
         trimAndSwap();
         return;
     }
 
-    image.addEventListener("load", trimAndSwap, { once: true });
+    const sourceKey = getImageSourceKey(image);
+    if (!sourceKey) {
+        return;
+    }
+
+    queueTrimAfterLoad(image, sourceKey, trimAndSwap);
 }
 
 function trimExistingImages(rootNode = document) {
     const root = rootNode instanceof Element || rootNode instanceof Document ? rootNode : document;
+    if (isTrimmableImageNode(root)) {
+        applyTrimToImage(root);
+    }
+
     const images = root.querySelectorAll("img");
     for (let i = 0; i < images.length; i += 1) {
         applyTrimToImage(images[i]);
@@ -359,11 +421,15 @@ function trimExistingImages(rootNode = document) {
 }
 
 function observeNewImages() {
+    if (trimMutationObserver) {
+        return;
+    }
+
     if (!(document.body instanceof HTMLElement)) {
         return;
     }
 
-    const observer = new MutationObserver((records) => {
+    trimMutationObserver = new MutationObserver((records) => {
         for (let i = 0; i < records.length; i += 1) {
             const record = records[i];
 
@@ -394,7 +460,7 @@ function observeNewImages() {
         }
     });
 
-    observer.observe(document.body, {
+    trimMutationObserver.observe(document.body, {
         childList: true,
         subtree: true,
         attributes: true,

@@ -13,22 +13,58 @@ let lastPointerX = 0;
 let lastPointerY = 0;
 let draggedDistance = 0;
 let suppressNextClick = false;
+let dragStartedOnMarimo = false;
 
 function resetPointerSession() {
     activePointerId = null;
     lastPointerX = 0;
     lastPointerY = 0;
     draggedDistance = 0;
+    dragStartedOnMarimo = false;
+}
+
+function shouldIgnoreRollingPointerDown(target) {
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    return Boolean(target.closest("button, a, input, textarea, select, label, [data-no-roll='true']"));
+}
+
+function isTransportModeDraggingBlockEnabled() {
+    if (!(document.body instanceof HTMLElement)) {
+        return false;
+    }
+
+    return document.body.classList.contains("transport-mode-enabled");
+}
+
+function getMarimoCenterClientPoint(elements) {
+    if (!(elements?.marimo instanceof HTMLElement)) {
+        return null;
+    }
+
+    const rect = elements.marimo.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width <= 0 || rect.height <= 0) {
+        return null;
+    }
+
+    return {
+        x: rect.left + (rect.width / 2),
+        y: rect.top + (rect.height / 2)
+    };
 }
 
 export function bindMainEvents(options = {}) {
     const getMainElements = typeof options.getMainElements === "function" ? options.getMainElements : () => ({});
     const onMainMarimoClick = typeof options.onMainMarimoClick === "function" ? options.onMainMarimoClick : () => {};
+    const onRollingStart = typeof options.onRollingStart === "function" ? options.onRollingStart : () => {};
     const onRolling = typeof options.onRolling === "function" ? options.onRolling : () => {};
     const onRollingEnd = typeof options.onRollingEnd === "function" ? options.onRollingEnd : () => {};
     const onSplit = typeof options.onSplit === "function" ? options.onSplit : () => {};
     const onSplitUp = typeof options.onSplitUp === "function" ? options.onSplitUp : () => {};
     const onSplitDown = typeof options.onSplitDown === "function" ? options.onSplitDown : () => {};
+    const onToggleMarimoFixed = typeof options.onToggleMarimoFixed === "function" ? options.onToggleMarimoFixed : () => {};
     const onSendToWarehouse = typeof options.onSendToWarehouse === "function" ? options.onSendToWarehouse : () => {};
 
     const elements = getMainElements();
@@ -43,8 +79,14 @@ export function bindMainEvents(options = {}) {
         onMainMarimoClick();
     });
 
-    bindEventOnce(elements.marimo, "pointerdown", "listenerMainMarimoPointerDownBound", (event) => {
+    bindEventOnce(elements.mainPage, "pointerdown", "listenerMainMarimoPointerDownBound", (event) => {
         if (!Number.isFinite(event.pointerId)) {
+            return;
+        }
+        if (isTransportModeDraggingBlockEnabled()) {
+            return;
+        }
+        if (shouldIgnoreRollingPointerDown(event.target)) {
             return;
         }
 
@@ -52,18 +94,27 @@ export function bindMainEvents(options = {}) {
         lastPointerX = event.clientX;
         lastPointerY = event.clientY;
         draggedDistance = 0;
+        dragStartedOnMarimo = Boolean(event.target instanceof Element && event.target.closest("#marimo"));
+        onRollingStart();
 
-        if (typeof elements.marimo?.setPointerCapture === "function") {
+        if (typeof elements.mainPage?.setPointerCapture === "function") {
             try {
-                elements.marimo.setPointerCapture(event.pointerId);
+                elements.mainPage.setPointerCapture(event.pointerId);
             } catch (error) {
                 void error;
             }
         }
+
     });
 
-    bindEventOnce(elements.marimo, "pointermove", "listenerMainMarimoPointerMoveBound", (event) => {
+    bindEventOnce(elements.mainPage, "pointermove", "listenerMainMarimoPointerMoveBound", (event) => {
         if (event.pointerId !== activePointerId) {
+            return;
+        }
+
+        if (isTransportModeDraggingBlockEnabled()) {
+            resetPointerSession();
+            onRollingEnd();
             return;
         }
 
@@ -72,7 +123,13 @@ export function bindMainEvents(options = {}) {
         lastPointerX = event.clientX;
         lastPointerY = event.clientY;
 
-        const rollingInput = calculateRollingSurfaceDistance(dx, dy);
+        const centerPoint = getMarimoCenterClientPoint(elements);
+        const rollingInput = calculateRollingSurfaceDistance(dx, dy, {
+            centerX: centerPoint?.x,
+            centerY: centerPoint?.y,
+            pointX: event.clientX,
+            pointY: event.clientY
+        });
         if (rollingInput.distanceAbs <= 0) {
             return;
         }
@@ -82,6 +139,7 @@ export function bindMainEvents(options = {}) {
             rollingSurfaceDistance: rollingInput.signedDistance,
             rollingSurfaceDistanceAbs: rollingInput.distanceAbs
         });
+
     });
 
     const handlePointerEnd = (event) => {
@@ -89,20 +147,28 @@ export function bindMainEvents(options = {}) {
             return;
         }
 
-        if (draggedDistance > DRAG_CLICK_CANCEL_DISTANCE) {
-            suppressNextClick = true;
+        if (dragStartedOnMarimo) {
+            if (draggedDistance > DRAG_CLICK_CANCEL_DISTANCE) {
+                suppressNextClick = true;
+            } else {
+                // pointer capture 환경에서도 탭 영양제 동작을 안정적으로 보장한다.
+                suppressNextClick = true;
+                onMainMarimoClick();
+            }
         }
 
         resetPointerSession();
         onRollingEnd();
     };
 
-    bindEventOnce(elements.marimo, "pointerup", "listenerMainMarimoPointerUpBound", handlePointerEnd);
-    bindEventOnce(elements.marimo, "pointercancel", "listenerMainMarimoPointerCancelBound", handlePointerEnd);
+    bindEventOnce(elements.mainPage, "pointerup", "listenerMainMarimoPointerUpBound", handlePointerEnd);
+    bindEventOnce(elements.mainPage, "pointercancel", "listenerMainMarimoPointerCancelBound", handlePointerEnd);
+    bindEventOnce(elements.mainPage, "lostpointercapture", "listenerMainMarimoLostCaptureBound", handlePointerEnd);
 
     bindEventOnce(elements.splitBtn, "click", "listenerSplitBound", onSplit);
     bindEventOnce(elements.splitUpBtn, "click", "listenerSplitUpBound", onSplitUp);
     bindEventOnce(elements.splitDownBtn, "click", "listenerSplitDownBound", onSplitDown);
+    bindEventOnce(elements.marimoFixToggleBtn, "click", "listenerMarimoFixToggleBound", onToggleMarimoFixed);
     bindEventOnce(elements.sendToWarehouseBtn, "click", "listenerSendWarehouseBound", onSendToWarehouse);
 }
 

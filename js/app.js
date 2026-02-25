@@ -4,6 +4,7 @@
 
 import { loadState, saveState, state } from "./state.js";
 import { applyProgression } from "./progression/progressionLogic.js";
+import { initTutorialController } from "./progression/tutorial/tutorialController.js";
 import { initGlobalUI } from "./global/globalController.js";
 import { initSnapNavigation } from "./ui/nav.js";
 import { initIconButtonImageTrim } from "./ui/iconButtonImageTrim.js";
@@ -35,6 +36,7 @@ function bootstrapApp() {
     try {
         initIconButtonImageTrim();
         loadState();
+        initTutorialController();
 
         const bootstrapMessages = applyProgression(state, "bootstrap");
         saveState();

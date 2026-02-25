@@ -1,13 +1,14 @@
 // 파일 역할: basket physics로 운송 바구니/뜨룰채 캔버스 레이어를 구동한다.
 // 핵심 책임: 운송모드 상태에 따라 net/basket 캔버스 애니메이션의 시작·중지를 제어한다.
-// 연동 범위: transportMode index가 렌더 단계에서 호출하는 바구니 레이어 어댑터다.
+// 연동 범위: basketLayer index가 호출해 transport controller 렌더 단계에 연결되는 어댑터다.
 
-import { getMarimoVolume } from "../../utils/marimoData.js";
-import { startBasketAnimation, stopBasketAnimation } from "../../modules/basketPhysics/index.js";
+import { getMarimoVolume } from "../../../utils/marimoData.js";
+import { startBasketAnimation, stopBasketAnimation } from "../../../modules/basketPhysics/index.js";
+import { getTransportNetRenderablePendingItems } from "../netLayer/visualiseStackedMarimo.js";
 
 const NET_MAX_RENDER_COUNT = 24;
 const BASKET_MAX_RENDER_COUNT = 60;
-const TRANSPORT_BASKET_IMAGE_SRC = new URL("../../ui/assets/basket small.PNG", import.meta.url).href;
+const TRANSPORT_BASKET_IMAGE_SRC = new URL("../../../ui/assets/basket small.PNG", import.meta.url).href;
 
 function isCanvasElement(node) {
     return typeof HTMLCanvasElement !== "undefined" && node instanceof HTMLCanvasElement;
@@ -73,11 +74,12 @@ function renderFieldPhysics(options) {
 
 export function renderTransportBasketLayer(options = {}) {
     const enabled = options?.enabled === true;
+    const netRenderablePendingItems = getTransportNetRenderablePendingItems(options.pendingItems);
 
     renderFieldPhysics({
         enabled,
         canvas: options.netCanvas,
-        items: options.pendingItems,
+        items: netRenderablePendingItems,
         maxRenderCount: NET_MAX_RENDER_COUNT,
         fallbackWidth: 360,
         fallbackHeight: 620,

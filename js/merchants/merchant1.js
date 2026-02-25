@@ -2,43 +2,13 @@
 // 핵심 책임: 고정 슬롯(0번) 배치와 방문 상태 갱신 로직을 상인 객체 메서드로 제공한다.
 // 연동 범위: 상점 시스템이 참조하는 merchant1 고유 행동 계약을 구현한다.
 
-import { normalizeOptionalOfferSpec } from "./merchantOffer.js";
-
 // 이 파일은 향후 상인 스케줄러 확장 시 공통 표시 스펙 훅을 재사용하기 위해 구조를 유지한다.
 const FIXED_SHOP_SLOT_INDEX = 0;
 
-function getMerchantLevel(merchantState) {
-    return Number.isFinite(merchantState?.level) ? Math.max(1, Math.round(merchantState.level)) : 1;
-}
-
-function buildMerchant1Offer(merchantState) {
-    const level = getMerchantLevel(merchantState);
-
-    if (level <= 2) {
-        return {
-            mode: "all_of",
-            rules: [{ kind: "any", count: 1 }]
-        };
-    }
-
-    const roll = Math.random();
-    if (roll < 0.55) {
-        return {
-            mode: "all_of",
-            rules: [{ kind: "any", count: 1 }]
-        };
-    }
-
-    if (roll < 0.82) {
-        return {
-            mode: "all_of",
-            rules: [{ kind: "volume_min", count: 1, minVolume: 1.2 }]
-        };
-    }
-
+function buildMerchant1Offer() {
     return {
         mode: "all_of",
-        rules: [{ kind: "volume_exact", count: 1, exactVolume: 1, tolerance: 0.2 }]
+        rules: [{ kind: "volume_exact", count: 1, exactVolume: 1, tolerance: 0.0001, label: "volume 1" }]
     };
 }
 
@@ -49,15 +19,16 @@ const merchant1 = {
         return {
             ...baseState,
             unlocked: true,
-            activeOffer: null
+            activeOffer: buildMerchant1Offer()
         };
     },
 
     normalizeState(currentState, rawState, fallbackState) {
-        const raw = rawState && typeof rawState === "object" ? rawState : {};
+        void rawState;
+        void fallbackState;
         return {
             ...currentState,
-            activeOffer: normalizeOptionalOfferSpec(raw.activeOffer, fallbackState.activeOffer)
+            activeOffer: buildMerchant1Offer()
         };
     },
 
@@ -76,9 +47,10 @@ const merchant1 = {
 
     getOfferSpec(state, merchantState, now, reason) {
         void state;
+        void merchantState;
         void now;
         void reason;
-        return buildMerchant1Offer(merchantState);
+        return buildMerchant1Offer();
     },
 
     getRequirements(state, merchantState) {

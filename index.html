@@ -46,9 +46,12 @@
 
         <!-- 이 섹션은 기본 진입 위치인 중앙 메인 페이지다. -->
         <section class="page" id="mainPage">
-            <button id="sendToWarehouseBtn" class="floating-warehouse-btn hidden" type="button" aria-label="Put into warehouse">
-                <img class="icon-button-image" src="js/ui/assets/UI elements/put into warehouse icon.png" alt="" aria-hidden="true" />
-            </button>
+            <div class="floating-main-actions">
+                <button id="marimoFixToggleBtn" class="marimo-fix-toggle-btn" type="button" aria-label="Toggle marimo fixed state" aria-pressed="false">마리모 고정: OFF</button>
+                <button id="sendToWarehouseBtn" class="floating-warehouse-btn hidden" type="button" aria-label="Put into warehouse">
+                    <img class="icon-button-image" src="js/ui/assets/UI elements/put into warehouse icon.png" alt="" aria-hidden="true" />
+                </button>
+            </div>
             <div class="marimo-area">
                 <div class="informations">
                     <div class="info-text">
@@ -108,6 +111,7 @@
     <div id="hardwareUpgradeModal" class="modal hidden">
         <div class="modal-content upgrade-modal-layout">
             <h2 class="upgrade-modal-title">Environment Upgrades</h2>
+            <p id="hardwareUpgradeInfo" class="message-text upgrade-modal-info"></p>
             <div id="hardwareUpgradeList" class="upgrade-list-panel"></div>
             <p id="hardwareUpgradeMessage" class="message-text"></p>
             <div class="modal-actions-row">
@@ -125,6 +129,7 @@
     <div id="softwareUpgradeModal" class="modal hidden">
         <div class="modal-content upgrade-modal-layout">
             <h2 class="upgrade-modal-title">Software Upgrades</h2>
+            <p id="softwareUpgradeInfo" class="message-text upgrade-modal-info"></p>
             <div id="softwareUpgradeList" class="upgrade-list-panel"></div>
             <p id="softwareUpgradeMessage" class="message-text"></p>
             <div class="modal-actions-row">
@@ -142,7 +147,7 @@
     <div id="facilityUpgradeModal" class="modal hidden">
         <div class="modal-content upgrade-modal-layout">
             <h2 class="upgrade-modal-title">Facility Upgrades</h2>
-            <p class="message-text">Facility upgrades are coming soon.</p>
+            <p id="facilityUpgradeInfo" class="message-text upgrade-modal-info"></p>
             <div class="modal-actions-row">
                 <button id="closeFacilityUpgradeBtn" class="modal-icon-btn close-icon-btn" type="button" aria-label="Close facility upgrade modal">
                     <img class="icon-button-image" src="js/ui/assets/UI elements/close button icon.png" alt="" aria-hidden="true" />
@@ -244,7 +249,7 @@
     </div>
 
     <script type="module" src="js/app.js"></script>
-    <!-- <script type="module" src="js/devtools.js"></script> -->
+    <script type="module" src="js/devtools.js"></script>
 </body>
 
 </html>

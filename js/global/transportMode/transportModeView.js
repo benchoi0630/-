@@ -2,6 +2,8 @@
 // 핵심 책임: 풀스크린 뜰채/운송 필드 캔버스와 헤더 토글 버튼을 유지·갱신한다.
 // 연동 범위: transportMode controller가 호출해 페이지 이동과 무관한 고정 UI를 유지한다.
 
+import { renderTransportNetDropStackVisual, renderTransportNetStackVisual } from "./netLayer/visualiseStackedMarimo.js";
+
 const HEADER_TRANSPORT_TOGGLE_BTN_ID = "globalTransportModeToggleBtn";
 const TRANSPORT_LAYER_ID = "globalTransportModeLayer";
 const TRANSPORT_NET_FIELD_ID = "globalTransportNetField";
@@ -104,6 +106,7 @@ export function renderTransportModeLayerView(snapshot) {
 
     if (elements.layer) {
         elements.layer.classList.toggle("hidden", !enabled);
+        renderTransportNetDropStackVisual(elements.layer);
     }
 
     if (elements.toggleBtn) {
@@ -112,6 +115,8 @@ export function renderTransportModeLayerView(snapshot) {
     }
 
     if (elements.netCursor && elements.layer) {
+        renderTransportNetStackVisual(elements.netCursor, snapshot);
+
         const layerRect = elements.layer.getBoundingClientRect();
         const localX = Number.isFinite(snapshot?.netCursor?.clientX) ? snapshot.netCursor.clientX - layerRect.left : -9999;
         const localY = Number.isFinite(snapshot?.netCursor?.clientY) ? snapshot.netCursor.clientY - layerRect.top : -9999;

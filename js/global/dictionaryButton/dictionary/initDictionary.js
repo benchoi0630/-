@@ -1,6 +1,6 @@
 // 파일 역할: 도감 메인/하위 모달 버튼 바인딩과 렌더 트리거를 초기화한다.
 // 핵심 책임: 마리모/상인 도감, 대화 기록 목록 표시를 모달 전환 흐름에 맞춰 연결한다.
-// 연동 범위: globalController가 호출하는 도감 UI 초기 진입점을 제공한다.
+// 연동 범위: dictionaryButtonController가 호출하는 도감 UI 초기 진입점을 제공한다.
 
 import { renderMarimoDictionary } from "./marimoDictionary.js";
 import { renderMerchantDictionary } from "./merchantDictionary.js";

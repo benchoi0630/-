@@ -13,13 +13,13 @@ import {
 
 export const TRANSPORT_WAREHOUSE_CHANGED_EVENT = "marimo:transport-warehouse-changed";
 
-export function notifyTransportWarehouseChanged() {
+export function notifyTransportWarehouseChanged(changeDetail = null) {
     if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
         return;
     }
 
     if (typeof CustomEvent === "function") {
-        window.dispatchEvent(new CustomEvent(TRANSPORT_WAREHOUSE_CHANGED_EVENT));
+        window.dispatchEvent(new CustomEvent(TRANSPORT_WAREHOUSE_CHANGED_EVENT, { detail: changeDetail }));
         return;
     }
 

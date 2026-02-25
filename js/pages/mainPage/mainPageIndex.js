@@ -5,7 +5,7 @@
 import { saveState, state } from "../../state.js";
 import { createMainPageMainUI } from "./mainpageUI/mainpageMainUI.js";
 import { getSplitAmount, isSendToWarehouseUnlocked, syncMainMarimoDerivedState, volumeToDiameter } from "./mainpageLogic/runtime/mainPageStateLogic.js";
-import { adjustSplitVolume, handleMainMarimoClick, handleMainMarimoRolling, handleSendToWarehouse, handleSplit } from "./mainpageLogic/mainPageActionLogic.js";
+import { adjustSplitVolume, handleMainMarimoClick, handleMainMarimoRolling, handleSendToWarehouse, handleSplit, handleToggleMarimoFixed } from "./mainpageLogic/mainPageActionLogic.js";
 import { bindDevDisplayEvents, bindMainEvents } from "./mainpageLogic/runtime/mainPageEventLogic.js";
 import { calculateAutoRollingSurfaceDistance } from "./mainpageLogic/growthEngine.js";
 import { startMainLoop } from "./mainpageLogic/runtime/mainPageLoopLogic.js";
@@ -13,7 +13,17 @@ import { startMainLoop } from "./mainpageLogic/runtime/mainPageLoopLogic.js";
 const mainPageUI = createMainPageMainUI({
     getSplitAmount,
     volumeToDiameter,
-    isSendToWarehouseUnlocked
+    isSendToWarehouseUnlocked,
+    onManualRollingDistanceAbs: (rollingSurfaceDistanceAbs) => {
+        if (!Number.isFinite(rollingSurfaceDistanceAbs) || rollingSurfaceDistanceAbs <= 0) {
+            return;
+        }
+
+        handleMainMarimoRolling({
+            rollingSurfaceDistance: rollingSurfaceDistanceAbs,
+            renderMainPage
+        });
+    }
 });
 
 export { getSplitAmount, volumeToDiameter };
@@ -43,15 +53,25 @@ export function initMainPage(options = {}) {
                 renderMainPage: context.renderMainPage
             });
         },
+        onRollingStart: () => {
+            mainPageUI.startManualRolling();
+        },
         onRolling: ({ rollingSurfaceDistance, rollingSurfaceDistanceAbs }) => {
-            mainPageUI.applyRollingVisual(rollingSurfaceDistance);
+            const appliedRolling = mainPageUI.applyRollingVisual(
+                Number.isFinite(rollingSurfaceDistance) ? rollingSurfaceDistance : rollingSurfaceDistanceAbs,
+                { source: "manual" }
+            );
+            if (!appliedRolling || appliedRolling.distanceAbs <= 0) {
+                return;
+            }
+
             handleMainMarimoRolling({
-                rollingSurfaceDistance: rollingSurfaceDistanceAbs,
+                rollingSurfaceDistance: appliedRolling.distanceAbs,
                 renderMainPage: context.renderMainPage
             });
         },
         onRollingEnd: () => {
-            mainPageUI.resetRollingVisual();
+            mainPageUI.endManualRolling();
         },
         onSplit: () => {
             handleSplit({
@@ -64,6 +84,12 @@ export function initMainPage(options = {}) {
         },
         onSplitDown: () => {
             adjustSplitVolume(-1, context.renderMainPage);
+        },
+        onToggleMarimoFixed: () => {
+            handleToggleMarimoFixed({
+                mainPageUI,
+                renderMainPage: context.renderMainPage
+            });
         },
         onSendToWarehouse: () => {
             handleSendToWarehouse({
@@ -80,13 +106,13 @@ export function initMainPage(options = {}) {
             }
 
             const autoRollingSurfaceDistance = calculateAutoRollingSurfaceDistance(state, deltaSeconds);
-            if (autoRollingSurfaceDistance <= 0) {
+            const appliedRolling = mainPageUI.applyRollingVisual(autoRollingSurfaceDistance, { source: "ambient" });
+            if (!appliedRolling || appliedRolling.distanceAbs <= 0) {
                 return false;
             }
 
-            mainPageUI.applyRollingVisual(autoRollingSurfaceDistance);
             const result = handleMainMarimoRolling({
-                rollingSurfaceDistance: autoRollingSurfaceDistance
+                rollingSurfaceDistance: appliedRolling.distanceAbs
             });
 
             return result.didGrow || result.usableRolling > 0;

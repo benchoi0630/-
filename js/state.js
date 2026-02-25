@@ -3,6 +3,7 @@
 // 연동 범위: 모든 페이지 모듈이 공유하는 단일 상태 객체와 저장 API를 제공한다.
 
 import { createDefaultMerchantsState, normalizeMerchantsState } from "./merchants/merchantsIndex.js";
+import { createDefaultTutorialState, normalizeTutorialState } from "./progression/tutorial/tutorialState.js";
 
 const STORAGE_KEY = "marimoGameState";
 const MAX_WAREHOUSE_ITEMS = 600;
@@ -41,7 +42,8 @@ const defaultState = {
     growth: {
         feeding: false,
         capVolume: 0,
-        accumulatedNutrition: 0
+        accumulatedNutrition: 0,
+        marimoFixed: false
     },
     environment: {
         waterCurrent: 0,
@@ -59,6 +61,7 @@ const defaultState = {
     progression: {
         ...defaultProgression
     },
+    tutorial: createDefaultTutorialState(),
     warehouseView: {
         ...defaultWarehouseView
     },
@@ -94,6 +97,7 @@ function createDefaultState() {
         currency: { ...defaultState.currency },
         merchants: createDefaultMerchantsState(),
         progression: createDefaultProgression(),
+        tutorial: createDefaultTutorialState(),
         warehouseView: createDefaultWarehouseView(),
         notifications: [],
         warehouse: []
@@ -147,7 +151,8 @@ function normalizeGrowth(growth) {
         capVolume: Number.isFinite(safeGrowth.capVolume) ? Math.max(0, safeGrowth.capVolume) : defaultState.growth.capVolume,
         accumulatedNutrition: Number.isFinite(safeGrowth.accumulatedNutrition)
             ? Math.max(0, safeGrowth.accumulatedNutrition)
-            : legacyConsumedRollingDistance
+            : legacyConsumedRollingDistance,
+        marimoFixed: safeGrowth.marimoFixed === true
     };
 }
 
@@ -312,6 +317,7 @@ function mergeState(stored) {
         },
         merchants: normalizeMerchantsState(safeStored.merchants),
         progression: normalizeProgression(safeStored.progression, safeStored.flags),
+        tutorial: normalizeTutorialState(safeStored.tutorial),
         warehouseView: normalizeWarehouseView(safeStored.warehouseView),
         notifications: normalizeNotifications(safeStored.notifications),
         warehouse: normalizeWarehouseItems(rawWarehouse)
@@ -331,6 +337,7 @@ function applyState(nextState) {
     state.currency = { ...nextState.currency };
     state.merchants = normalizeMerchantsState(nextState.merchants);
     state.progression = { ...nextState.progression };
+    state.tutorial = normalizeTutorialState(nextState.tutorial);
     state.warehouseView = { ...nextState.warehouseView };
     state.notifications = [...nextState.notifications];
     state.warehouse = normalizeWarehouseItems(nextState.warehouse).map((item) => ({ ...item }));

@@ -91,7 +91,31 @@ function bindMerchantActions(merchantNode, merchantId) {
         }
     };
 
-    merchantNode.addEventListener("click", onPurchase);
+    let lastPointerDownAt = 0;
+    const POINTER_CLICK_SUPPRESSION_MS = 700;
+
+    merchantNode.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.isPrimary === false) {
+            return;
+        }
+
+        lastPointerDownAt = Date.now();
+        onPurchase();
+    });
+
+    merchantNode.addEventListener("click", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        // pointerdown 에서 이미 구매를 처리한 직후 발생하는 click 중복을 막는다.
+        if (Date.now() - lastPointerDownAt <= POINTER_CLICK_SUPPRESSION_MS) {
+            return;
+        }
+
+        onPurchase();
+    });
+
     merchantNode.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();

@@ -23,17 +23,20 @@ export function clearAllPendingCommitTimers() {
     pendingCommitTimerByItemId.clear();
 }
 
-export function schedulePendingCommit(itemIds, delayMs, onCommitted) {
+export function schedulePendingCommit(itemIds, delayMs, onCommitted, options = {}) {
     const uniqueIds = toUniqueItemIds(itemIds);
     if (uniqueIds.length <= 0) {
         return;
     }
 
     const commitHandler = typeof onCommitted === "function" ? onCommitted : () => {};
+    const baseDelayMs = Number.isFinite(delayMs) ? Math.max(0, Math.round(delayMs)) : 0;
+    const intervalMs = Number.isFinite(options?.intervalMs) ? Math.max(0, Math.round(options.intervalMs)) : 0;
 
     for (let i = 0; i < uniqueIds.length; i += 1) {
         const itemId = uniqueIds[i];
         clearPendingCommitTimer(itemId);
+        const queuedDelayMs = baseDelayMs + (i * intervalMs);
 
         const timerId = setTimeout(() => {
             pendingCommitTimerByItemId.delete(itemId);
@@ -41,7 +44,7 @@ export function schedulePendingCommit(itemIds, delayMs, onCommitted) {
             if (movedIds.length > 0) {
                 commitHandler(movedIds);
             }
-        }, delayMs);
+        }, queuedDelayMs);
 
         pendingCommitTimerByItemId.set(itemId, timerId);
     }

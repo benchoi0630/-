@@ -5,7 +5,7 @@
 import { state, saveState } from "../../../state.js";
 import { createMarimoRecordId, getMarimoDiameter, getMarimoType, getMarimoVolume, hasMainMarimo } from "../../../utils/marimoData.js";
 import { renderSingleDetail } from "./singleDetailModal.js";
-import { pickRandomStackItemId, renderStackDetail, stopStackDetail } from "./stackDetailModal.js";
+import { pickRandomStackItemId, refreshActiveStackDetailCount, renderStackDetail, stopStackDetail } from "./stackDetailModal.js";
 import { replaceBasketItem } from "../../../modules/basketPhysics/index.js";
 import { bindEventOnce } from "../../../utils/domEvents.js";
 import { TRANSPORT_WAREHOUSE_CHANGED_EVENT } from "../../../global/transportMode/index.js";
@@ -134,9 +134,15 @@ function bindTransportWarehouseSync() {
         return;
     }
 
-    window.addEventListener(TRANSPORT_WAREHOUSE_CHANGED_EVENT, () => {
+    window.addEventListener(TRANSPORT_WAREHOUSE_CHANGED_EVENT, (event) => {
         const elements = getDetailElements();
         if (!elements.detailModal || elements.detailModal.classList.contains("hidden")) {
+            return;
+        }
+
+        const shouldRefreshCountOnly = event?.detail?.liveStackCountOnly === true && warehouseModalMode === "basket";
+        if (shouldRefreshCountOnly) {
+            refreshActiveStackDetailCount();
             return;
         }
 
